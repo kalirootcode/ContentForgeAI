@@ -31,7 +31,10 @@ class IconLoader:
         
         try:
             img = Image.open(icon_path)
-            # Resize to target size
+            # Convert to RGBA to handle transparency properly
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            # Resize to target size with high quality
             img = img.resize(size, Image.Resampling.LANCZOS)
             # Create CTkImage for both light and dark modes
             ctk_icon = ctk.CTkImage(light_image=img, dark_image=img, size=size)
