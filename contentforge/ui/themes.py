@@ -3,25 +3,26 @@ Theme configuration for ContentForge AI
 Dark mode with vibrant accents
 """
 
-# Color palette
+# Color palette - Skull theme (Black, Blue, Cyan)
 COLORS = {
-    # Base colors
-    "bg_dark": "#0a0a0a",
-    "bg_card": "#1a1a1a",
-    "bg_input": "#252525",
-    "bg_hover": "#2a2a2a",
+    # Base colors - Pure black background
+    "bg_dark": "#000000",
+    "bg_card": "#0d1117",
+    "bg_input": "#161b22",
+    "bg_hover": "#1f2937",
     
     # Text colors
     "text_primary": "#ffffff",
-    "text_secondary": "#a0a0a0",
-    "text_muted": "#666666",
+    "text_secondary": "#9ca3af",
+    "text_muted": "#6b7280",
     
-    # Accent colors
-    "accent_primary": "#6366f1",    # Indigo
-    "accent_secondary": "#8b5cf6",  # Purple
-    "accent_success": "#22c55e",    # Green
-    "accent_warning": "#f59e0b",    # Amber
-    "accent_error": "#ef4444",      # Red
+    # Accent colors - Blue & Cyan theme
+    "accent_primary": "#2563eb",     # Blue
+    "accent_secondary": "#3b82f6",   # Light blue
+    "accent_cyan": "#00d9ff",        # Cyan
+    "accent_success": "#10b981",     # Emerald
+    "accent_warning": "#f59e0b",     # Amber
+    "accent_error": "#ef4444",       # Red
     
     # Social network colors
     "facebook": "#1877F2",
@@ -33,9 +34,9 @@ COLORS = {
     "linkedin": "#0A66C2",
     "pinterest": "#E60023",
     
-    # Gradients (for buttons)
-    "gradient_start": "#6366f1",
-    "gradient_end": "#8b5cf6",
+    # Gradients (for buttons and progress bar)
+    "gradient_start": "#2563eb",
+    "gradient_end": "#00d9ff",
 }
 
 # Dark theme configuration

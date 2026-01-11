@@ -600,8 +600,10 @@ class ContentForgeApp(ctk.CTk):
     def _create_layout(self):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0)  # Footer row
         self._create_sidebar()
         self._create_main_area()
+        self._create_footer()
     
     def _create_sidebar(self):
         self.sidebar = ctk.CTkScrollableFrame(self, width=250, corner_radius=0, fg_color=COLORS["bg_card"])
@@ -818,6 +820,7 @@ class ContentForgeApp(ctk.CTk):
         
         self.generate_btn.configure(text="⏳...", state="disabled")
         self._show_output("⏳ Generando contenido...\n\nEspera unos segundos...")
+        self._start_progress("📝 Generando contenido...", 5.0)
         
         def generate():
             result = self.engine.generate(topic)
@@ -830,6 +833,7 @@ class ContentForgeApp(ctk.CTk):
         type_info = CONTENT_TYPES.get(self.selected_content_type, {})
         header = f"{'─' * 40}\n{network.get('icon', '')} {network.get('name', '')} │ {type_info.get('icon', '')} {type_info.get('name', '')}\n{'─' * 40}\n\n"
         self._show_output(header + result)
+        self._complete_progress("✅ Contenido generado")
     
     def _regenerate_content(self):
         self._generate_content()
@@ -890,6 +894,7 @@ class ContentForgeApp(ctk.CTk):
         style_name = IMAGE_STYLES.get(style_id, {}).get('name', style_id)
         self.gen_image_btn.configure(text="⏳...", state="disabled")
         self.media_status.configure(text=f"Creando {style_name} {aspect_ratio}...", text_color=COLORS["text_muted"])
+        self._start_progress("🖼️ Generando imagen...", 8.0)
         
         def generate():
             try:
@@ -910,11 +915,13 @@ class ContentForgeApp(ctk.CTk):
     def _on_image_complete(self, image_path: str):
         self.gen_image_btn.configure(text="🖼️ Generar Imagen", state="normal")
         self.media_status.configure(text="✅ Imagen creada!", text_color=COLORS["accent_success"])
+        self._complete_progress("✅ Imagen generada")
         ImagePreview(self, image_path)
     
     def _on_image_error(self, error: str):
         self.gen_image_btn.configure(text="🖼️ Generar Imagen", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
+        self._error_progress(f"❌ {error}")
     
     def _on_format_selected_for_prompt(self, format_id: str, aspect_ratio: str):
         """Generate prompt for external platform."""
@@ -998,6 +1005,7 @@ class ContentForgeApp(ctk.CTk):
         style_name = VIDEO_STYLES.get(style_id, {}).get('name', style_id)
         self.gen_video_btn.configure(text="⏳...", state="disabled")
         self.media_status.configure(text=f"Creando {style_name} {aspect_ratio}...", text_color=COLORS["text_muted"])
+        self._start_progress("🎬 Generando video...", 60.0)  # Videos take longer
         
         def generate():
             try:
@@ -1013,12 +1021,14 @@ class ContentForgeApp(ctk.CTk):
     def _on_video_complete(self, video_path: str):
         self.gen_video_btn.configure(text="🎬 Crear Video", state="normal")
         self.media_status.configure(text="✅ Video creado!", text_color=COLORS["accent_success"])
+        self._complete_progress("✅ Video generado")
         import subprocess
         subprocess.run(["xdg-open", str(Path(video_path).parent)])
     
     def _on_video_error(self, error: str):
         self.gen_video_btn.configure(text="🎬 Crear Video", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
+        self._error_progress(f"❌ {error}")
     
     def _generate_script(self):
         """Show script type picker before generating script."""
@@ -1039,6 +1049,7 @@ class ContentForgeApp(ctk.CTk):
         
         self.gen_script_btn.configure(text="⏳...", state="disabled")
         self.media_status.configure(text=f"Creando {script_info['name']}...", text_color=COLORS["text_muted"])
+        self._start_progress("📜 Generando guión...", 6.0)
         
         def generate():
             try:
@@ -1056,18 +1067,111 @@ class ContentForgeApp(ctk.CTk):
     def _on_script_complete(self, script: str, script_name: str):
         self.gen_script_btn.configure(text="📜 Script", state="normal")
         self.media_status.configure(text="✅ Guión generado!", text_color=COLORS["accent_success"])
+        self._complete_progress("✅ Guión generado")
         PromptPreview(self, script, script_name)
     
     def _on_script_error(self, error: str):
         self.gen_script_btn.configure(text="📜 Script", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
+        self._error_progress(f"❌ {error}")
     
     def _check_api_status(self):
         missing = validate_config()
         if missing:
-            self.status_indicator.configure(text="🔴 API no configurada", text_color=COLORS["accent_error"])
+            self.footer_status.configure(text="🔴 API no configurada", text_color=COLORS["accent_error"])
         else:
-            self.status_indicator.configure(text="🟢 Gemini API OK", text_color=COLORS["accent_success"])
+            self.footer_status.configure(text="🟢 Gemini API OK", text_color=COLORS["accent_success"])
+    
+    def _create_footer(self):
+        """Create footer bar with API status and animated progress bar."""
+        # Footer spans both columns
+        footer = ctk.CTkFrame(self, height=35, fg_color=COLORS["bg_card"], corner_radius=0)
+        footer.grid(row=1, column=0, columnspan=2, sticky="ew")
+        footer.grid_columnconfigure(1, weight=1)
+        
+        # Left section - API Status (same width as sidebar: 250px)
+        status_section = ctk.CTkFrame(footer, width=250, fg_color=COLORS["bg_input"], corner_radius=0)
+        status_section.grid(row=0, column=0, sticky="nsew")
+        status_section.grid_propagate(False)
+        
+        self.footer_status = ctk.CTkLabel(
+            status_section, text="⏳ Verificando API...", 
+            font=FONTS["small"], text_color=COLORS["text_secondary"]
+        )
+        self.footer_status.pack(expand=True)
+        
+        # Separator
+        ctk.CTkFrame(footer, width=1, fg_color=COLORS["bg_hover"]).grid(row=0, column=0, sticky="nse")
+        
+        # Right section - Progress Bar
+        progress_section = ctk.CTkFrame(footer, fg_color="transparent")
+        progress_section.grid(row=0, column=1, sticky="nsew", padx=15)
+        progress_section.grid_columnconfigure(0, weight=1)
+        
+        self.progress_label = ctk.CTkLabel(
+            progress_section, text="", 
+            font=FONTS["small"], text_color=COLORS["text_muted"]
+        )
+        self.progress_label.grid(row=0, column=0, sticky="w", pady=(8, 2))
+        
+        # Progress bar with gradient effect
+        self.progress_bar = ctk.CTkProgressBar(
+            progress_section, height=6, corner_radius=3,
+            fg_color=COLORS["bg_input"], 
+            progress_color=COLORS["accent_cyan"]
+        )
+        self.progress_bar.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        self.progress_bar.set(0)
+        
+        # Animation state
+        self.progress_running = False
+        self.progress_target = 0
+        self.progress_current = 0
+    
+    def _start_progress(self, text: str, estimated_seconds: float = 5.0):
+        """Start animated progress bar."""
+        self.progress_running = True
+        self.progress_current = 0
+        self.progress_target = 0.95  # Don't reach 100% until complete
+        self.progress_label.configure(text=text, text_color=COLORS["accent_cyan"])
+        self.progress_bar.set(0)
+        
+        # Calculate step for smooth animation (60fps target)
+        self.progress_step = (self.progress_target / estimated_seconds) / 60
+        self._animate_progress()
+    
+    def _animate_progress(self):
+        """Animate progress bar smoothly."""
+        if not self.progress_running:
+            return
+        
+        if self.progress_current < self.progress_target:
+            # Ease out - slower as we approach target
+            remaining = self.progress_target - self.progress_current
+            increment = max(self.progress_step * (remaining / self.progress_target + 0.1), 0.001)
+            self.progress_current = min(self.progress_current + increment, self.progress_target)
+            self.progress_bar.set(self.progress_current)
+            self.after(16, self._animate_progress)  # ~60fps
+    
+    def _complete_progress(self, text: str = "✅ Completado"):
+        """Complete progress bar animation."""
+        self.progress_running = False
+        self.progress_current = 1.0
+        self.progress_bar.set(1.0)
+        self.progress_label.configure(text=text, text_color=COLORS["accent_success"])
+        # Reset after delay
+        self.after(3000, self._reset_progress)
+    
+    def _error_progress(self, text: str = "❌ Error"):
+        """Show error state in progress bar."""
+        self.progress_running = False
+        self.progress_label.configure(text=text, text_color=COLORS["accent_error"])
+        self.after(3000, self._reset_progress)
+    
+    def _reset_progress(self):
+        """Reset progress bar to initial state."""
+        self.progress_bar.set(0)
+        self.progress_label.configure(text="", text_color=COLORS["text_muted"])
 
 
 def run_app():
