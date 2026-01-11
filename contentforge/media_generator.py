@@ -243,9 +243,8 @@ Suitable for {network}."""
                                 if hasattr(video_obj, 'uri') and video_obj.uri:
                                     logger.info(f"Downloading video from URI: {video_obj.uri}")
                                     import requests
-                                    from ..config import GEMINI_API_KEY
                                     
-                                    # Add API key to URI or as header
+                                    # Add API key to URI (GEMINI_API_KEY imported at top)
                                     download_url = video_obj.uri
                                     if '?' in download_url:
                                         download_url += f"&key={GEMINI_API_KEY}"
