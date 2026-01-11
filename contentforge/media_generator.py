@@ -231,18 +231,36 @@ Suitable for {network}."""
                         for video in response.generated_videos:
                             video_bytes = None
                             
-                            # Try different ways to get video data
-                            if hasattr(video, 'video'):
-                                if hasattr(video.video, 'video_bytes') and video.video.video_bytes:
-                                    video_bytes = video.video.video_bytes
-                                elif hasattr(video.video, 'uri') and video.video.uri:
-                                    # Download from URI
-                                    import requests
-                                    video_bytes = requests.get(video.video.uri).content
-                            elif hasattr(video, 'video_bytes'):
-                                video_bytes = video.video_bytes
+                            # Debug: Log the video object structure
+                            logger.info(f"Video object attrs: {dir(video)}")
                             
-                            if video_bytes:
+                            # Try different ways to get video data
+                            if hasattr(video, 'video') and video.video:
+                                video_obj = video.video
+                                logger.info(f"Video.video attrs: {dir(video_obj)}")
+                                
+                                # Check for URI first (Veo often returns URI)
+                                if hasattr(video_obj, 'uri') and video_obj.uri:
+                                    logger.info(f"Downloading video from URI: {video_obj.uri}")
+                                    import requests
+                                    resp = requests.get(video_obj.uri, timeout=120)
+                                    if resp.status_code == 200:
+                                        video_bytes = resp.content
+                                        logger.info(f"Downloaded {len(video_bytes)} bytes from URI")
+                                    else:
+                                        logger.error(f"Failed to download: {resp.status_code}")
+                                
+                                # Try video_bytes if URI didn't work
+                                if not video_bytes and hasattr(video_obj, 'video_bytes') and video_obj.video_bytes:
+                                    video_bytes = video_obj.video_bytes
+                                    logger.info(f"Got {len(video_bytes)} bytes from video_bytes")
+                                
+                                # Try data attribute
+                                if not video_bytes and hasattr(video_obj, 'data') and video_obj.data:
+                                    video_bytes = video_obj.data
+                                    logger.info(f"Got {len(video_bytes)} bytes from data")
+                            
+                            if video_bytes and len(video_bytes) > 10000:  # Minimum size check
                                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                                 ratio_suffix = aspect_ratio.replace(":", "x")
                                 filename = f"{network}_{ratio_suffix}_{timestamp}.mp4"
@@ -259,7 +277,7 @@ Suitable for {network}."""
                                     network=network
                                 )
                                 
-                                logger.info(f"Video generated and saved: {filepath}")
+                                logger.info(f"Video generated and saved: {filepath} ({len(video_bytes)} bytes)")
                                 return str(filepath)
                     
                     logger.warning(f"No videos found in response. Response attrs: {dir(response)}")
