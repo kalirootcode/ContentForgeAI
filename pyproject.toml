@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contentforge-ai"
+version = "1.0.0"
+description = "Generador de Contenido Viral para Redes Sociales con IA"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "KaliRootCode", email = "kalirootcode@proton.me"}
+]
+keywords = ["social-media", "content-generator", "ai", "gemini", "viral-content"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Multimedia :: Graphics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "customtkinter>=5.2.0",
+    "google-generativeai>=0.3.0",
+    "python-dotenv>=1.0.0",
+    "Pillow>=10.0.0",
+    "pyperclip>=1.8.2",
+]
+
+[project.scripts]
+contentforge = "contentforge.main:main"
+
+[project.urls]
+Homepage = "https://github.com/kalirootcode/ContentForgeAI"
+Repository = "https://github.com/kalirootcode/ContentForgeAI"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["contentforge*"]
