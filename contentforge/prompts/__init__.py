@@ -11,6 +11,7 @@ from .youtube import YOUTUBE_PROMPTS
 from .telegram import TELEGRAM_PROMPTS
 from .linkedin import LINKEDIN_PROMPTS
 from .pinterest import PINTEREST_PROMPTS
+from .threads import THREADS_PROMPTS
 
 # Master prompt registry
 NETWORK_PROMPTS = {
@@ -22,6 +23,7 @@ NETWORK_PROMPTS = {
     "telegram": TELEGRAM_PROMPTS,
     "linkedin": LINKEDIN_PROMPTS,
     "pinterest": PINTEREST_PROMPTS,
+    "threads": THREADS_PROMPTS,
 }
 
 

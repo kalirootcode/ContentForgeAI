@@ -36,6 +36,7 @@ SOCIAL_NETWORKS = [
     {"id": "telegram", "name": "Telegram", "icon": "✈", "color": "#0088CC"},
     {"id": "linkedin", "name": "LinkedIn", "icon": "in", "color": "#0A66C2"},
     {"id": "pinterest", "name": "Pinterest", "icon": "📌", "color": "#E60023"},
+    {"id": "threads", "name": "Threads", "icon": "@", "color": "#000000"},
 ]
 
 # ===== CONTENT TYPES =====
