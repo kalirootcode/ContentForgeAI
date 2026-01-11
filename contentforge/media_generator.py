@@ -239,16 +239,25 @@ Suitable for {network}."""
                                 video_obj = video.video
                                 logger.info(f"Video.video attrs: {dir(video_obj)}")
                                 
-                                # Check for URI first (Veo often returns URI)
+                                # Check for URI first (Veo returns URI that requires auth)
                                 if hasattr(video_obj, 'uri') and video_obj.uri:
                                     logger.info(f"Downloading video from URI: {video_obj.uri}")
                                     import requests
-                                    resp = requests.get(video_obj.uri, timeout=120)
+                                    from ..config import GEMINI_API_KEY
+                                    
+                                    # Add API key to URI or as header
+                                    download_url = video_obj.uri
+                                    if '?' in download_url:
+                                        download_url += f"&key={GEMINI_API_KEY}"
+                                    else:
+                                        download_url += f"?key={GEMINI_API_KEY}"
+                                    
+                                    resp = requests.get(download_url, timeout=120)
                                     if resp.status_code == 200:
                                         video_bytes = resp.content
                                         logger.info(f"Downloaded {len(video_bytes)} bytes from URI")
                                     else:
-                                        logger.error(f"Failed to download: {resp.status_code}")
+                                        logger.error(f"Failed to download: {resp.status_code} - {resp.text[:200]}")
                                 
                                 # Try video_bytes if URI didn't work
                                 if not video_bytes and hasattr(video_obj, 'video_bytes') and video_obj.video_bytes:
