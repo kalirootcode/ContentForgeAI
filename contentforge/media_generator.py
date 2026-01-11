@@ -178,43 +178,52 @@ Use cyberpunk/tech aesthetic with dark backgrounds and neon accents (purple, cya
         
         branding = self._get_branding_instructions(network, 'video')
         
-        # Create video prompt from content
-        video_prompt = f"""Create a short, engaging video for social media about:
-{content}
-
-Style: {branding}
-
-The video should be in {aspect_ratio} aspect ratio.
-Use smooth transitions, modern typography, and dynamic motion.
-Keep it professional and suitable for {network}.
-Duration: 5-10 seconds, loopable if possible.
-"""
+        # Create video prompt from content - summarized for Veo
+        video_prompt = f"""Cyberpunk tech video: {content[:200]}
+Style: Dark background, neon purple/cyan/green accents, futuristic, professional.
+Motion: Smooth camera movements, subtle glitch effects, tech elements.
+Suitable for {network}."""
         
         try:
-            # Use Veo 2 for video generation
-            response = self.client.models.generate_content(
+            # Map aspect ratio to Veo format
+            veo_aspect = "16:9"  # Default
+            if aspect_ratio == "9:16":
+                veo_aspect = "9:16"
+            elif aspect_ratio == "1:1":
+                veo_aspect = "1:1"
+            
+            # Use generate_videos for Veo
+            operation = self.client.models.generate_videos(
                 model="veo-2.0-generate-001",
-                contents=video_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["VIDEO"],
+                prompt=video_prompt,
+                config=types.GenerateVideosConfig(
+                    aspect_ratio=veo_aspect,
+                    number_of_videos=1,
+                    duration_seconds=5,
                 )
             )
             
-            # Check for video in response
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
-                    if hasattr(part, 'inline_data') and part.inline_data:
-                        video_data = part.inline_data.data
+            # Poll for completion (Veo is async)
+            import time
+            max_wait = 120  # 2 minutes max
+            waited = 0
+            
+            while not operation.done and waited < max_wait:
+                time.sleep(5)
+                waited += 5
+                operation = self.client.operations.get(operation)
+                logger.info(f"Video generation progress: {waited}s...")
+            
+            if operation.done and operation.response:
+                # Get the generated video
+                for video in operation.response.generated_videos:
+                    if video.video and video.video.video_bytes:
+                        video_bytes = video.video.video_bytes
+                        
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         ratio_suffix = aspect_ratio.replace(":", "x")
                         filename = f"{network}_{ratio_suffix}_{timestamp}.mp4"
                         filepath = VIDEOS_DIR / filename
-                        
-                        import base64
-                        if isinstance(video_data, str):
-                            video_bytes = base64.b64decode(video_data)
-                        else:
-                            video_bytes = video_data
                         
                         with open(filepath, 'wb') as f:
                             f.write(video_bytes)
@@ -230,7 +239,7 @@ Duration: 5-10 seconds, loopable if possible.
                         logger.info(f"Video generated and saved: {filepath}")
                         return str(filepath)
             
-            logger.warning("No video generated in response")
+            logger.warning("Video generation timed out or failed")
             return None
             
         except Exception as e:
