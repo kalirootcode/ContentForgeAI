@@ -1084,27 +1084,31 @@ class ContentForgeApp(ctk.CTk):
     
     def _create_footer(self):
         """Create footer bar with API status and animated progress bar."""
-        # Footer spans both columns - Compact height (approx 0.5cm ~ 20px)
-        footer = ctk.CTkFrame(self, height=20, fg_color=COLORS["bg_card"], corner_radius=0)
+        # Footer spans both columns - Compact height (20-22px is approx 0.5cm)
+        FOOTER_HEIGHT = 22
+        
+        footer = ctk.CTkFrame(self, height=FOOTER_HEIGHT, fg_color=COLORS["bg_card"], corner_radius=0)
         footer.grid(row=1, column=0, columnspan=2, sticky="ew")
         footer.grid_columnconfigure(1, weight=1)
+        footer.grid_propagate(False) # STRICTLY enforce height
         
         # Left section - API Status (same width as sidebar: 250px)
-        status_section = ctk.CTkFrame(footer, width=250, fg_color=COLORS["bg_input"], corner_radius=0)
+        # MUST set height here because we use grid_propagate(False)
+        status_section = ctk.CTkFrame(footer, width=250, height=FOOTER_HEIGHT, fg_color=COLORS["bg_input"], corner_radius=0)
         status_section.grid(row=0, column=0, sticky="nsew")
-        status_section.grid_propagate(False)
+        status_section.grid_propagate(False) 
         
         self.footer_status = ctk.CTkLabel(
             status_section, text="⏳ Verificando API...", 
-            font=("Segoe UI", 9), text_color=COLORS["text_secondary"]
+            font=("Segoe UI", 10), text_color=COLORS["text_secondary"]
         )
-        self.footer_status.pack(expand=True)
+        self.footer_status.place(relx=0.5, rely=0.5, anchor="center") # Use place for centering in fixed frame
         
         # Separator
-        ctk.CTkFrame(footer, width=1, fg_color=COLORS["bg_hover"]).grid(row=0, column=0, sticky="nse")
+        ctk.CTkFrame(footer, width=1, height=FOOTER_HEIGHT, fg_color=COLORS["bg_hover"]).place(x=250, y=0)
         
         # Right section - Progress Bar
-        progress_section = ctk.CTkFrame(footer, fg_color="transparent")
+        progress_section = ctk.CTkFrame(footer, height=FOOTER_HEIGHT, fg_color="transparent")
         progress_section.grid(row=0, column=1, sticky="nsew", padx=10)
         progress_section.grid_columnconfigure(1, weight=1)
         
@@ -1112,15 +1116,15 @@ class ContentForgeApp(ctk.CTk):
             progress_section, text="", 
             font=("Segoe UI", 9), text_color=COLORS["text_muted"]
         )
-        self.progress_label.grid(row=0, column=0, sticky="w", padx=(0, 10))
+        self.progress_label.pack(side="left", padx=(0, 10))
         
-        # Progress bar with gradient effect - thinner for compact footer
+        # Progress bar
         self.progress_bar = ctk.CTkProgressBar(
             progress_section, height=4, corner_radius=2,
             fg_color=COLORS["bg_input"], 
             progress_color=COLORS["accent_cyan"]
         )
-        self.progress_bar.grid(row=0, column=1, sticky="ew")
+        self.progress_bar.pack(side="left", fill="x", expand=True, pady=9) # Center vertically with padding
         self.progress_bar.set(0)
         
         # Animation state
