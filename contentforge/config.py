@@ -13,8 +13,8 @@ load_dotenv(APP_DIR / ".env")
 
 # ===== GEMINI API =====
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip() or None
-GEMINI_MODEL_FAST = "gemini-1.5-flash"      # For quick content
-GEMINI_MODEL_PRO = "gemini-1.5-pro"          # For detailed scripts
+GEMINI_MODEL_FAST = "gemini-2.0-flash"       # For quick content
+GEMINI_MODEL_PRO = "gemini-2.5-pro"          # For detailed scripts
 
 # ===== DATABASE =====
 DATABASE_PATH = APP_DIR / "data" / "contentforge.db"
@@ -26,15 +26,16 @@ DEFAULT_LANGUAGE = os.getenv("DEFAULT_LANGUAGE", "es")
 THEME = os.getenv("THEME", "dark")
 
 # ===== SOCIAL NETWORKS =====
+# Using proper Unicode/text representations
 SOCIAL_NETWORKS = [
-    {"id": "facebook", "name": "Facebook", "icon": "📘", "color": "#1877F2"},
-    {"id": "instagram", "name": "Instagram", "icon": "📸", "color": "#E4405F"},
-    {"id": "tiktok", "name": "TikTok", "icon": "🎵", "color": "#000000"},
-    {"id": "twitter", "name": "X (Twitter)", "icon": "𝕏", "color": "#1DA1F2"},
-    {"id": "youtube", "name": "YouTube", "icon": "▶️", "color": "#FF0000"},
-    {"id": "telegram", "name": "Telegram", "icon": "✈️", "color": "#0088CC"},
-    {"id": "linkedin", "name": "LinkedIn", "icon": "💼", "color": "#0A66C2"},
-    {"id": "pinterest", "name": "Pinterest", "icon": "��", "color": "#E60023"},
+    {"id": "facebook", "name": "Facebook", "icon": "ⓕ", "color": "#1877F2"},
+    {"id": "instagram", "name": "Instagram", "icon": "📷", "color": "#E4405F"},
+    {"id": "tiktok", "name": "TikTok", "icon": "♪", "color": "#000000"},
+    {"id": "twitter", "name": "X (Twitter)", "icon": "𝕏", "color": "#000000"},
+    {"id": "youtube", "name": "YouTube", "icon": "▶", "color": "#FF0000"},
+    {"id": "telegram", "name": "Telegram", "icon": "✈", "color": "#0088CC"},
+    {"id": "linkedin", "name": "LinkedIn", "icon": "in", "color": "#0A66C2"},
+    {"id": "pinterest", "name": "Pinterest", "icon": "📌", "color": "#E60023"},
 ]
 
 # ===== CONTENT TYPES =====
@@ -45,8 +46,8 @@ CONTENT_TYPES = {
     "carousel": {"name": "Carrusel", "icon": "🎠", "desc": "Múltiples slides"},
     "thread": {"name": "Hilo", "icon": "🧵", "desc": "Thread/Hilo"},
     "caption": {"name": "Caption", "icon": "💬", "desc": "Pie de foto"},
-    "bio": {"name": "Bio", "icon": "👤", "desc": "Biografía"},
-    "hashtags": {"name": "Hashtags", "icon": "#️⃣", "desc": "Tags optimizados"},
+    "bio": {"name": "Bio", "icon": "��", "desc": "Biografía"},
+    "hashtags": {"name": "Hashtags", "icon": "#", "desc": "Tags optimizados"},
 }
 
 

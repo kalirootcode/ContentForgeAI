@@ -101,21 +101,36 @@ class ContentForgeApp(ctk.CTk):
         )
         networks_label.grid(row=2, column=0, padx=20, pady=(10, 5), sticky="w")
         
-        # Network buttons
+        # Network buttons with colored icons
         self.network_buttons = {}
         for i, network in enumerate(SOCIAL_NETWORKS):
+            btn_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+            btn_frame.grid(row=3+i, column=0, padx=10, pady=2, sticky="ew")
+            btn_frame.grid_columnconfigure(1, weight=1)
+            
+            # Create colored icon label
+            icon_label = ctk.CTkLabel(
+                btn_frame,
+                text=network['icon'],
+                font=("Segoe UI", 16, "bold"),
+                text_color=network['color'],
+                width=30
+            )
+            icon_label.grid(row=0, column=0, padx=(5, 2))
+            
+            # Create button
             btn = ctk.CTkButton(
-                sidebar,
-                text=f"{network['icon']} {network['name']}",
+                btn_frame,
+                text=network['name'],
                 font=FONTS["body"],
-                height=40,
+                height=36,
                 anchor="w",
-                fg_color="transparent" if network['id'] != self.selected_network else COLORS["accent_primary"],
+                fg_color=COLORS["accent_primary"] if network['id'] == self.selected_network else "transparent",
                 hover_color=COLORS["bg_hover"],
                 text_color=COLORS["text_primary"],
                 command=lambda n=network['id']: self._select_network(n)
             )
-            btn.grid(row=3+i, column=0, padx=10, pady=2, sticky="ew")
+            btn.grid(row=0, column=1, sticky="ew", padx=(0, 5))
             self.network_buttons[network['id']] = btn
         
         # Status indicator at bottom
@@ -144,7 +159,7 @@ class ContentForgeApp(ctk.CTk):
         # Header with current network
         self.header_label = ctk.CTkLabel(
             main_frame,
-            text=f"📸 Instagram - Crear Contenido",
+            text="📷 Instagram - Crear Contenido",
             font=FONTS["subtitle"],
             text_color=COLORS["text_primary"]
         )
