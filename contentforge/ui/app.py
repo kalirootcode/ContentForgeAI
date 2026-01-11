@@ -1084,8 +1084,8 @@ class ContentForgeApp(ctk.CTk):
     
     def _create_footer(self):
         """Create footer bar with API status and animated progress bar."""
-        # Footer spans both columns
-        footer = ctk.CTkFrame(self, height=35, fg_color=COLORS["bg_card"], corner_radius=0)
+        # Footer spans both columns - Compact height (approx 0.5cm ~ 20px)
+        footer = ctk.CTkFrame(self, height=20, fg_color=COLORS["bg_card"], corner_radius=0)
         footer.grid(row=1, column=0, columnspan=2, sticky="ew")
         footer.grid_columnconfigure(1, weight=1)
         
@@ -1096,7 +1096,7 @@ class ContentForgeApp(ctk.CTk):
         
         self.footer_status = ctk.CTkLabel(
             status_section, text="⏳ Verificando API...", 
-            font=FONTS["small"], text_color=COLORS["text_secondary"]
+            font=("Segoe UI", 9), text_color=COLORS["text_secondary"]
         )
         self.footer_status.pack(expand=True)
         
@@ -1105,22 +1105,22 @@ class ContentForgeApp(ctk.CTk):
         
         # Right section - Progress Bar
         progress_section = ctk.CTkFrame(footer, fg_color="transparent")
-        progress_section.grid(row=0, column=1, sticky="nsew", padx=15)
-        progress_section.grid_columnconfigure(0, weight=1)
+        progress_section.grid(row=0, column=1, sticky="nsew", padx=10)
+        progress_section.grid_columnconfigure(1, weight=1)
         
         self.progress_label = ctk.CTkLabel(
             progress_section, text="", 
-            font=FONTS["small"], text_color=COLORS["text_muted"]
+            font=("Segoe UI", 9), text_color=COLORS["text_muted"]
         )
-        self.progress_label.grid(row=0, column=0, sticky="w", pady=(8, 2))
+        self.progress_label.grid(row=0, column=0, sticky="w", padx=(0, 10))
         
-        # Progress bar with gradient effect
+        # Progress bar with gradient effect - thinner for compact footer
         self.progress_bar = ctk.CTkProgressBar(
-            progress_section, height=6, corner_radius=3,
+            progress_section, height=4, corner_radius=2,
             fg_color=COLORS["bg_input"], 
             progress_color=COLORS["accent_cyan"]
         )
-        self.progress_bar.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        self.progress_bar.grid(row=0, column=1, sticky="ew")
         self.progress_bar.set(0)
         
         # Animation state
