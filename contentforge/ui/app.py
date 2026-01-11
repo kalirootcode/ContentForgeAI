@@ -34,23 +34,58 @@ class EmojiPicker(ctk.CTkToplevel):
         super().__init__(parent)
         self.callback = callback
         self.title("Selector de Emojis")
-        self.geometry("400x350")
-        self.configure(fg_color=COLORS["bg_dark"])
+        self.geometry("420x380")
+        self.configure(fg_color="#1a1a2e")
         self.transient(parent)
+        
+        # Wait for window to be ready before grabbing focus
+        self.after(100, self._setup_content)
+    
+    def _setup_content(self):
+        """Setup content after window is ready."""
         self.grab_set()
         
-        container = ctk.CTkScrollableFrame(self, fg_color=COLORS["bg_card"], corner_radius=8)
-        container.pack(fill="both", expand=True, padx=8, pady=8)
+        # Main scrollable container
+        container = ctk.CTkScrollableFrame(
+            self, 
+            fg_color="#252540",
+            corner_radius=10,
+            scrollbar_button_color="#4a4a6a",
+            scrollbar_button_hover_color="#6a6a8a"
+        )
+        container.pack(fill="both", expand=True, padx=10, pady=10)
         
         for category_name, emojis in EMOJI_CATEGORIES.items():
-            ctk.CTkLabel(container, text=category_name, font=FONTS["small"], text_color=COLORS["text_secondary"]).pack(anchor="w", padx=8, pady=(8, 3))
-            emoji_frame = ctk.CTkFrame(container, fg_color="transparent")
-            emoji_frame.pack(fill="x", padx=8)
+            # Category label
+            cat_label = ctk.CTkLabel(
+                container, 
+                text=category_name, 
+                font=("Inter", 12, "bold"), 
+                text_color="#a0a0c0"
+            )
+            cat_label.pack(anchor="w", padx=5, pady=(12, 5))
+            
+            # Emoji grid frame
+            emoji_frame = ctk.CTkFrame(container, fg_color="#1e1e35", corner_radius=8)
+            emoji_frame.pack(fill="x", padx=5, pady=(0, 5))
+            
             for i, emoji in enumerate(emojis):
-                btn = ctk.CTkButton(emoji_frame, text=emoji, width=30, height=30, font=("Segoe UI Emoji", 14),
-                                    fg_color=COLORS["bg_input"], hover_color=COLORS["bg_hover"],
-                                    command=lambda e=emoji: self._select(e))
-                btn.grid(row=i // 10, column=i % 10, padx=1, pady=1)
+                btn = ctk.CTkButton(
+                    emoji_frame, 
+                    text=emoji, 
+                    width=32, 
+                    height=32, 
+                    font=("Segoe UI Emoji", 16),
+                    fg_color="#2a2a4a", 
+                    hover_color="#4a4a7a",
+                    border_width=0,
+                    corner_radius=6,
+                    command=lambda e=emoji: self._select(e)
+                )
+                btn.grid(row=i // 10, column=i % 10, padx=2, pady=2)
+        
+        # Force update
+        self.update_idletasks()
     
     def _select(self, emoji: str):
         self.callback(emoji)
