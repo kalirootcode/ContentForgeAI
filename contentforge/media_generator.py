@@ -203,41 +203,68 @@ Suitable for {network}."""
                 )
             )
             
-            # Poll for completion (Veo is async)
+            # Poll for completion (Veo is async - videos take 30-90 seconds)
             import time
-            max_wait = 120  # 2 minutes max
+            max_wait = 180  # 3 minutes max for video generation
             waited = 0
             
-            while not operation.done and waited < max_wait:
+            while waited < max_wait:
                 time.sleep(5)
                 waited += 5
                 operation = self.client.operations.get(operation)
-                logger.info(f"Video generation progress: {waited}s...")
+                logger.info(f"Video generation progress: {waited}s... done={operation.done}")
+                
+                if operation.done:
+                    break
             
-            if operation.done and operation.response:
-                # Get the generated video
-                for video in operation.response.generated_videos:
-                    if video.video and video.video.video_bytes:
-                        video_bytes = video.video.video_bytes
-                        
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        ratio_suffix = aspect_ratio.replace(":", "x")
-                        filename = f"{network}_{ratio_suffix}_{timestamp}.mp4"
-                        filepath = VIDEOS_DIR / filename
-                        
-                        with open(filepath, 'wb') as f:
-                            f.write(video_bytes)
-                        
-                        self._save_media_record(
-                            content_id=content_id,
-                            media_type='video',
-                            prompt_used=f"[{aspect_ratio}] {content[:100]}...",
-                            file_path=str(filepath),
-                            network=network
-                        )
-                        
-                        logger.info(f"Video generated and saved: {filepath}")
-                        return str(filepath)
+            # Check result
+            if operation.done:
+                logger.info(f"Operation completed. Checking response...")
+                
+                # Try to get video from response
+                if hasattr(operation, 'response') and operation.response:
+                    response = operation.response
+                    logger.info(f"Response type: {type(response)}")
+                    
+                    # Handle generated_videos
+                    if hasattr(response, 'generated_videos') and response.generated_videos:
+                        for video in response.generated_videos:
+                            video_bytes = None
+                            
+                            # Try different ways to get video data
+                            if hasattr(video, 'video'):
+                                if hasattr(video.video, 'video_bytes') and video.video.video_bytes:
+                                    video_bytes = video.video.video_bytes
+                                elif hasattr(video.video, 'uri') and video.video.uri:
+                                    # Download from URI
+                                    import requests
+                                    video_bytes = requests.get(video.video.uri).content
+                            elif hasattr(video, 'video_bytes'):
+                                video_bytes = video.video_bytes
+                            
+                            if video_bytes:
+                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                ratio_suffix = aspect_ratio.replace(":", "x")
+                                filename = f"{network}_{ratio_suffix}_{timestamp}.mp4"
+                                filepath = VIDEOS_DIR / filename
+                                
+                                with open(filepath, 'wb') as f:
+                                    f.write(video_bytes)
+                                
+                                self._save_media_record(
+                                    content_id=content_id,
+                                    media_type='video',
+                                    prompt_used=f"[{aspect_ratio}] {content[:100]}...",
+                                    file_path=str(filepath),
+                                    network=network
+                                )
+                                
+                                logger.info(f"Video generated and saved: {filepath}")
+                                return str(filepath)
+                    
+                    logger.warning(f"No videos found in response. Response attrs: {dir(response)}")
+                else:
+                    logger.warning(f"No response in operation. Error: {getattr(operation, 'error', 'unknown')}")
             
             logger.warning("Video generation timed out or failed")
             return None
