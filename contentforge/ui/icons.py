@@ -62,7 +62,11 @@ class IconLoader:
         if cache_key in self._cache:
             return self._cache[cache_key]
         
-        icon = self._load_icon(content_type, self.CONTENT_SIZE)
+        # Try aliases for content types (e.g., thread -> hilo)
+        aliases = {"thread": "hilo"}
+        icon_name = aliases.get(content_type, content_type)
+        
+        icon = self._load_icon(icon_name, self.CONTENT_SIZE)
         if icon:
             self._cache[cache_key] = icon
         return icon
