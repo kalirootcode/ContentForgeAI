@@ -91,15 +91,27 @@ Responde SOLO con el prompt de imagen, sin explicaciones.
             logger.error(f"Error generating image prompt: {e}")
             return ""
     
-    def generate_image(self, prompt: str, network: str, content_id: Optional[int] = None) -> Optional[str]:
+    def generate_image(self, prompt: str, network: str, content_id: Optional[int] = None, aspect_ratio: str = "16:9") -> Optional[str]:
         """Generate an image using Gemini's image generation capability."""
         if not self.client:
             logger.error("Gemini client not initialized")
             return None
         
         branding = self._get_branding_instructions(network, 'image')
+        
+        # Map aspect ratio to dimensions for prompt guidance
+        ratio_desc = {
+            "1:1": "square format",
+            "4:3": "horizontal 4:3 format",
+            "16:9": "widescreen 16:9 format",
+            "9:16": "vertical portrait format (for stories/reels)",
+            "3:4": "vertical 3:4 format"
+        }
+        
         full_prompt = f"""Generate an image for this request:
 {prompt}
+
+Format: {ratio_desc.get(aspect_ratio, 'widescreen')}
 
 Style guidelines:
 {branding}
@@ -125,7 +137,8 @@ Use cyberpunk/tech aesthetic with dark backgrounds and neon accents (purple, cya
                         # Save the image
                         image_data = part.inline_data.data
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        filename = f"{network}_{timestamp}.png"
+                        ratio_suffix = aspect_ratio.replace(":", "x")
+                        filename = f"{network}_{ratio_suffix}_{timestamp}.png"
                         filepath = IMAGES_DIR / filename
                         
                         # Decode and save
@@ -142,7 +155,7 @@ Use cyberpunk/tech aesthetic with dark backgrounds and neon accents (purple, cya
                         self._save_media_record(
                             content_id=content_id,
                             media_type='image',
-                            prompt_used=prompt,
+                            prompt_used=f"[{aspect_ratio}] {prompt}",
                             file_path=str(filepath),
                             network=network
                         )
@@ -155,6 +168,73 @@ Use cyberpunk/tech aesthetic with dark backgrounds and neon accents (purple, cya
             
         except Exception as e:
             logger.error(f"Error generating image: {e}")
+            return None
+    
+    def generate_video(self, content: str, network: str, aspect_ratio: str = "16:9", content_id: Optional[int] = None) -> Optional[str]:
+        """Generate a video using Gemini Veo API."""
+        if not self.client:
+            logger.error("Gemini client not initialized")
+            return None
+        
+        branding = self._get_branding_instructions(network, 'video')
+        
+        # Create video prompt from content
+        video_prompt = f"""Create a short, engaging video for social media about:
+{content}
+
+Style: {branding}
+
+The video should be in {aspect_ratio} aspect ratio.
+Use smooth transitions, modern typography, and dynamic motion.
+Keep it professional and suitable for {network}.
+Duration: 5-10 seconds, loopable if possible.
+"""
+        
+        try:
+            # Use Veo 2 for video generation
+            response = self.client.models.generate_content(
+                model="veo-2.0-generate-001",
+                contents=video_prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["VIDEO"],
+                )
+            )
+            
+            # Check for video in response
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        video_data = part.inline_data.data
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        ratio_suffix = aspect_ratio.replace(":", "x")
+                        filename = f"{network}_{ratio_suffix}_{timestamp}.mp4"
+                        filepath = VIDEOS_DIR / filename
+                        
+                        import base64
+                        if isinstance(video_data, str):
+                            video_bytes = base64.b64decode(video_data)
+                        else:
+                            video_bytes = video_data
+                        
+                        with open(filepath, 'wb') as f:
+                            f.write(video_bytes)
+                        
+                        self._save_media_record(
+                            content_id=content_id,
+                            media_type='video',
+                            prompt_used=f"[{aspect_ratio}] {content[:100]}...",
+                            file_path=str(filepath),
+                            network=network
+                        )
+                        
+                        logger.info(f"Video generated and saved: {filepath}")
+                        return str(filepath)
+            
+            logger.warning("No video generated in response")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error generating video: {e}")
             return None
     
     def generate_video_prompt(self, content: str, network: str) -> str:

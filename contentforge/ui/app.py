@@ -122,6 +122,78 @@ class ImagePreview(ctk.CTkToplevel):
         subprocess.run(["xdg-open", str(Path(path).parent)])
 
 
+# Image format options
+IMAGE_FORMATS = {
+    "1:1": {"name": "Cuadrado (1:1)", "desc": "Instagram, Facebook", "ratio": "1:1"},
+    "4:3": {"name": "Horizontal (4:3)", "desc": "Presentaciones", "ratio": "4:3"},
+    "16:9": {"name": "Widescreen (16:9)", "desc": "YouTube, Twitter", "ratio": "16:9"},
+    "9:16": {"name": "Vertical (9:16)", "desc": "Stories, TikTok, Reels", "ratio": "9:16"},
+    "3:4": {"name": "Retrato (3:4)", "desc": "Pinterest, Posts", "ratio": "3:4"},
+}
+
+
+class FormatPicker(ctk.CTkToplevel):
+    """Dialog for selecting image/video format."""
+    
+    def __init__(self, parent, callback, title="Selecciona Formato"):
+        super().__init__(parent)
+        self.callback = callback
+        self.title(title)
+        self.geometry("350x380")
+        self.configure(fg_color="#1a1a2e")
+        self.transient(parent)
+        self.selected_format = None
+        
+        self.after(100, self._setup_content)
+    
+    def _setup_content(self):
+        self.grab_set()
+        
+        ctk.CTkLabel(
+            self, text="📐 Selecciona el formato", 
+            font=("Inter", 16, "bold"), 
+            text_color="#ffffff"
+        ).pack(pady=(20, 15))
+        
+        container = ctk.CTkFrame(self, fg_color="#252540", corner_radius=10)
+        container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        for fmt_id, fmt_info in IMAGE_FORMATS.items():
+            frame = ctk.CTkFrame(container, fg_color="transparent")
+            frame.pack(fill="x", padx=10, pady=5)
+            
+            btn = ctk.CTkButton(
+                frame,
+                text=f"  {fmt_info['name']}",
+                font=("Inter", 13),
+                height=45,
+                anchor="w",
+                fg_color="#2a2a4a",
+                hover_color="#4a4a7a",
+                corner_radius=8,
+                command=lambda f=fmt_id: self._select(f)
+            )
+            btn.pack(fill="x", side="left", expand=True)
+            
+            ctk.CTkLabel(
+                frame, text=fmt_info['desc'],
+                font=("Inter", 10),
+                text_color="#8080a0",
+                width=100
+            ).pack(side="right", padx=10)
+        
+        ctk.CTkButton(
+            self, text="Cancelar", 
+            fg_color="#3a3a5a", 
+            hover_color="#4a4a6a",
+            command=self.destroy
+        ).pack(pady=10)
+    
+    def _select(self, format_id: str):
+        self.callback(format_id, IMAGE_FORMATS[format_id]["ratio"])
+        self.destroy()
+
+
 class ContentForgeApp(ctk.CTk):
     """Main application window with collapsible network menus and media generation."""
     
@@ -339,7 +411,7 @@ class ContentForgeApp(ctk.CTk):
         media_btn_style = {"height": 32, "font": FONTS["body"], "fg_color": COLORS["accent_secondary"], "hover_color": COLORS["accent_primary"]}
         self.gen_image_btn = ctk.CTkButton(media_frame, text="🖼️ Generar Imagen", width=150, command=self._generate_image, **media_btn_style)
         self.gen_image_btn.pack(side="left", padx=(0, 8))
-        self.gen_video_btn = ctk.CTkButton(media_frame, text="🎬 Script Video", width=140, command=self._generate_video_prompt, **media_btn_style)
+        self.gen_video_btn = ctk.CTkButton(media_frame, text="🎬 Crear Video", width=140, command=self._generate_video, **media_btn_style)
         self.gen_video_btn.pack(side="left", padx=(0, 8))
         self.media_status = ctk.CTkLabel(media_frame, text="", font=FONTS["small"], text_color=COLORS["text_muted"])
         self.media_status.pack(side="left", padx=10)
@@ -397,6 +469,7 @@ class ContentForgeApp(ctk.CTk):
                 self._show_output(f"❌ Error: {e}")
     
     def _generate_image(self):
+        """Show format picker before generating image."""
         content = self.output_text.get("0.0", "end").strip()
         if not content or "Tu contenido" in content:
             self.media_status.configure(text="❌ Genera contenido primero", text_color=COLORS["accent_error"])
@@ -405,8 +478,15 @@ class ContentForgeApp(ctk.CTk):
             self.media_status.configure(text="❌ Selecciona una red", text_color=COLORS["accent_error"])
             return
         
+        # Show format picker
+        FormatPicker(self, self._on_format_selected_image, "Formato de Imagen")
+    
+    def _on_format_selected_image(self, format_id: str, aspect_ratio: str):
+        """Called when user selects an image format."""
+        content = self.output_text.get("0.0", "end").strip()
+        
         self.gen_image_btn.configure(text="⏳...", state="disabled")
-        self.media_status.configure(text="Analizando...", text_color=COLORS["text_muted"])
+        self.media_status.configure(text=f"Creando imagen {aspect_ratio}...", text_color=COLORS["text_muted"])
         
         def generate():
             try:
@@ -414,8 +494,8 @@ class ContentForgeApp(ctk.CTk):
                 if not prompt:
                     self.after(0, lambda: self._on_image_error("No se pudo generar prompt"))
                     return
-                self.after(0, lambda: self.media_status.configure(text="Creando imagen..."))
-                image_path = self.media_gen.generate_image(prompt, self.selected_network, self.current_content_id)
+                self.after(0, lambda: self.media_status.configure(text="Generando imagen..."))
+                image_path = self.media_gen.generate_image(prompt, self.selected_network, self.current_content_id, aspect_ratio)
                 if image_path:
                     self.after(0, lambda: self._on_image_complete(image_path))
                 else:
@@ -433,7 +513,8 @@ class ContentForgeApp(ctk.CTk):
         self.gen_image_btn.configure(text="🖼️ Generar Imagen", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
     
-    def _generate_video_prompt(self):
+    def _generate_video(self):
+        """Show format picker before generating video."""
         content = self.output_text.get("0.0", "end").strip()
         if not content or "Tu contenido" in content:
             self.media_status.configure(text="❌ Genera contenido primero", text_color=COLORS["accent_error"])
@@ -442,25 +523,36 @@ class ContentForgeApp(ctk.CTk):
             self.media_status.configure(text="❌ Selecciona una red", text_color=COLORS["accent_error"])
             return
         
+        # Show format picker for video
+        FormatPicker(self, self._on_format_selected_video, "Formato de Video")
+    
+    def _on_format_selected_video(self, format_id: str, aspect_ratio: str):
+        """Called when user selects a video format."""
+        content = self.output_text.get("0.0", "end").strip()
+        
         self.gen_video_btn.configure(text="⏳...", state="disabled")
-        self.media_status.configure(text="Creando script...", text_color=COLORS["text_muted"])
+        self.media_status.configure(text=f"Creando video {aspect_ratio}...", text_color=COLORS["text_muted"])
         
         def generate():
             try:
-                video_prompt = self.media_gen.generate_video_prompt(content, self.selected_network)
-                self.after(0, lambda: self._on_video_complete(video_prompt))
+                video_path = self.media_gen.generate_video(content, self.selected_network, aspect_ratio, self.current_content_id)
+                if video_path:
+                    self.after(0, lambda: self._on_video_complete(video_path))
+                else:
+                    self.after(0, lambda: self._on_video_error("Error al generar video"))
             except Exception as e:
                 self.after(0, lambda: self._on_video_error(str(e)))
         threading.Thread(target=generate).start()
     
-    def _on_video_complete(self, video_prompt: str):
-        self.gen_video_btn.configure(text="🎬 Script Video", state="normal")
-        self.media_status.configure(text="✅ Script creado!", text_color=COLORS["accent_success"])
-        if video_prompt:
-            self._show_output(video_prompt)
+    def _on_video_complete(self, video_path: str):
+        self.gen_video_btn.configure(text="🎬 Crear Video", state="normal")
+        self.media_status.configure(text="✅ Video creado!", text_color=COLORS["accent_success"])
+        # Open file manager to show video
+        import subprocess
+        subprocess.run(["xdg-open", str(Path(video_path).parent)])
     
     def _on_video_error(self, error: str):
-        self.gen_video_btn.configure(text="🎬 Script Video", state="normal")
+        self.gen_video_btn.configure(text="🎬 Crear Video", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
     
     def _check_api_status(self):
