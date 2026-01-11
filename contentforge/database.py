@@ -74,9 +74,95 @@ def init_database():
         )
     """)
     
+    # Image prompts table - branding instructions for AI image generation
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS image_prompts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            network TEXT NOT NULL,
+            style TEXT NOT NULL,
+            branding_instructions TEXT NOT NULL,
+            example_prompt TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # Video prompts table - branding instructions for AI video generation
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS video_prompts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            network TEXT NOT NULL,
+            style TEXT NOT NULL,
+            branding_instructions TEXT NOT NULL,
+            example_prompt TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # Generated media table - track all generated images/videos
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS generated_media (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_id INTEGER,
+            media_type TEXT NOT NULL,
+            prompt_used TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            network TEXT,
+            thumbnail_path TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (content_id) REFERENCES content_history(id)
+        )
+    """)
+    
+    # Insert default branding prompts if not exist
+    _insert_default_branding_prompts(cursor)
+    
     conn.commit()
     conn.close()
     logger.info("Database initialized successfully")
+
+
+def _insert_default_branding_prompts(cursor):
+    """Insert default branding prompts for KR-CLI DOMINION."""
+    # Check if already exists
+    cursor.execute("SELECT COUNT(*) FROM image_prompts")
+    if cursor.fetchone()[0] > 0:
+        return
+    
+    # Default image branding for KR-CLI DOMINION
+    branding_image = """
+BRANDING KR-CLI DOMINION:
+- Paleta de colores: Negro (#000000), Púrpura (#7C3AED), Cian (#06B6D4), Verde neón (#10B981)
+- Estilo: Cyberpunk, hacker aesthetic, futurista, tecnológico
+- Elementos visuales: Terminal, código, redes, escudo de seguridad, circuitos
+- Ambiente: Oscuro con acentos brillantes neón
+- Tipografía estilo: Monospace, tech, futurista
+- Evitar: Colores claros, estilos infantiles, clipart genérico
+"""
+    
+    branding_video = """
+BRANDING KR-CLI DOMINION PARA VIDEO:
+- Paleta: Negro base, acentos púrpura/cian/verde neón
+- Transiciones: Glitch effects, scan lines, matrix-style
+- Elementos: Terminal animada, código scrolling, efectos de hacking
+- Audio sugerido: Lo-fi beats, synthwave, ambient tech
+- Texto: Fuentes monospace, aparición tipo "typewriter"
+- Estilo general: Profesional pero con edge de hacker
+"""
+    
+    # Insert for all networks
+    networks = ['facebook', 'instagram', 'tiktok', 'twitter', 'youtube', 
+                'telegram', 'linkedin', 'pinterest', 'threads']
+    
+    for network in networks:
+        cursor.execute("""
+            INSERT INTO image_prompts (network, style, branding_instructions)
+            VALUES (?, 'cyberpunk', ?)
+        """, (network, branding_image))
+        
+        cursor.execute("""
+            INSERT INTO video_prompts (network, style, branding_instructions)
+            VALUES (?, 'cyberpunk', ?)
+        """, (network, branding_video))
 
 
 def save_content(network: str, content_type: str, topic: str, content: str) -> int:
