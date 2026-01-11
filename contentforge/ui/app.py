@@ -254,6 +254,62 @@ VIDEO_STYLES = {
         "desc": "Animación que repite",
         "prompt": "Seamless loop animation, satisfying repeat, mesmerizing motion, perfect for stories and reels"
     },
+    "prompt_only": {
+        "name": "📋 Solo Prompt",
+        "desc": "Genera prompt para otras plataformas",
+        "prompt": "",
+        "is_prompt_only": True
+    },
+}
+
+# Add prompt_only to IMAGE_STYLES
+IMAGE_STYLES["prompt_only"] = {
+    "name": "📋 Solo Prompt",
+    "desc": "Genera prompt para otras plataformas",
+    "prompt": "",
+    "is_prompt_only": True
+}
+
+# Script Types
+SCRIPT_TYPES = {
+    "reel": {
+        "name": "📱 Reel/Short",
+        "desc": "15-60 segundos, viral",
+        "duration": "15-60s",
+        "structure": "Hook → Contenido → CTA"
+    },
+    "long_video": {
+        "name": "🎥 Video Largo",
+        "desc": "3-10 minutos, completo",
+        "duration": "3-10 min",
+        "structure": "Intro → Secciones → Cierre"
+    },
+    "tutorial": {
+        "name": "📚 Tutorial",
+        "desc": "Paso a paso detallado",
+        "duration": "Variable",
+        "structure": "Problema → Pasos → Resultado"
+    },
+    "storytelling": {
+        "name": "📖 Storytelling",
+        "desc": "Narrativa con giro",
+        "duration": "Variable",
+        "structure": "Inicio → Conflicto → Resolución"
+    },
+}
+
+# External Platforms for Prompts
+IMAGE_PLATFORMS = {
+    "midjourney": {"name": "🎨 Midjourney", "format": "--ar {ratio} --v 6.1"},
+    "dalle": {"name": "🖼️ DALL-E 3", "format": "Aspect ratio: {ratio}"},
+    "grok": {"name": "⚡ Grok/Flux", "format": "Format: {ratio}"},
+    "stable": {"name": "🔥 Stable Diffusion", "format": "Resolution: {ratio}"},
+}
+
+VIDEO_PLATFORMS = {
+    "runway": {"name": "🎬 Runway ML", "format": "Duration: 5s, Aspect: {ratio}"},
+    "pika": {"name": "🎥 Pika Labs", "format": "Aspect ratio: {ratio}"},
+    "kling": {"name": "🚀 Kling AI", "format": "Format: {ratio}, Duration: 5s"},
 }
 
 
@@ -323,8 +379,197 @@ class MediaStylePicker(ctk.CTkToplevel):
     
     def _select(self, style_id: str):
         style_info = self.styles[style_id]
-        self.callback(style_id, style_info["prompt"])
+        is_prompt_only = style_info.get("is_prompt_only", False)
+        self.callback(style_id, style_info["prompt"], is_prompt_only)
         self.destroy()
+
+
+class ScriptTypePicker(ctk.CTkToplevel):
+    """Dialog for selecting script type."""
+    
+    def __init__(self, parent, callback):
+        super().__init__(parent)
+        self.callback = callback
+        self.title("Tipo de Guión")
+        self.geometry("420x450")
+        self.configure(fg_color="#1a1a2e")
+        self.transient(parent)
+        
+        self.after(100, self._setup_content)
+    
+    def _setup_content(self):
+        self.grab_set()
+        
+        ctk.CTkLabel(
+            self, text="📜 Selecciona tipo de guión", 
+            font=("Inter", 16, "bold"), 
+            text_color="#ffffff"
+        ).pack(pady=(20, 15))
+        
+        container = ctk.CTkScrollableFrame(self, fg_color="#252540", corner_radius=10)
+        container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        for script_id, script_info in SCRIPT_TYPES.items():
+            frame = ctk.CTkFrame(container, fg_color="#1e1e35", corner_radius=8)
+            frame.pack(fill="x", padx=5, pady=4)
+            
+            btn = ctk.CTkButton(
+                frame,
+                text=f"  {script_info['name']}",
+                font=("Inter", 13),
+                height=40,
+                anchor="w",
+                fg_color="transparent",
+                hover_color="#3a3a6a",
+                corner_radius=6,
+                command=lambda s=script_id: self._select(s)
+            )
+            btn.pack(fill="x", padx=5, pady=2)
+            
+            info_frame = ctk.CTkFrame(frame, fg_color="transparent")
+            info_frame.pack(fill="x", padx=15, pady=(0, 8))
+            
+            ctk.CTkLabel(
+                info_frame, text=f"⏱️ {script_info['duration']}",
+                font=("Inter", 10), text_color="#7070a0"
+            ).pack(side="left", padx=(0, 15))
+            
+            ctk.CTkLabel(
+                info_frame, text=script_info['structure'],
+                font=("Inter", 10), text_color="#9090b0"
+            ).pack(side="left")
+        
+        ctk.CTkButton(
+            self, text="Cancelar", 
+            fg_color="#3a3a5a", hover_color="#4a4a6a",
+            command=self.destroy
+        ).pack(pady=10)
+    
+    def _select(self, script_id: str):
+        self.callback(script_id, SCRIPT_TYPES[script_id])
+        self.destroy()
+
+
+class PlatformPicker(ctk.CTkToplevel):
+    """Dialog for selecting external platform for prompt."""
+    
+    def __init__(self, parent, callback, media_type="image"):
+        super().__init__(parent)
+        self.callback = callback
+        self.media_type = media_type
+        self.platforms = IMAGE_PLATFORMS if media_type == "image" else VIDEO_PLATFORMS
+        self.title("Plataforma Externa")
+        self.geometry("350x350")
+        self.configure(fg_color="#1a1a2e")
+        self.transient(parent)
+        
+        self.after(100, self._setup_content)
+    
+    def _setup_content(self):
+        self.grab_set()
+        
+        icon = "🖼️" if self.media_type == "image" else "🎬"
+        ctk.CTkLabel(
+            self, text=f"{icon} Selecciona plataforma", 
+            font=("Inter", 16, "bold"), 
+            text_color="#ffffff"
+        ).pack(pady=(20, 10))
+        
+        ctk.CTkLabel(
+            self, text="El prompt se optimizará para esta plataforma", 
+            font=("Inter", 11), text_color="#8080a0"
+        ).pack(pady=(0, 15))
+        
+        container = ctk.CTkFrame(self, fg_color="#252540", corner_radius=10)
+        container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        for plat_id, plat_info in self.platforms.items():
+            btn = ctk.CTkButton(
+                container,
+                text=f"  {plat_info['name']}",
+                font=("Inter", 13),
+                height=45,
+                anchor="w",
+                fg_color="#2a2a4a",
+                hover_color="#4a4a7a",
+                corner_radius=8,
+                command=lambda p=plat_id: self._select(p)
+            )
+            btn.pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkButton(
+            self, text="Cancelar", 
+            fg_color="#3a3a5a", hover_color="#4a4a6a",
+            command=self.destroy
+        ).pack(pady=10)
+    
+    def _select(self, platform_id: str):
+        self.callback(platform_id, self.platforms[platform_id])
+        self.destroy()
+
+
+class PromptPreview(ctk.CTkToplevel):
+    """Dialog to preview and copy generated prompt."""
+    
+    def __init__(self, parent, prompt: str, platform_name: str):
+        super().__init__(parent)
+        self.prompt = prompt
+        self.title(f"Prompt para {platform_name}")
+        self.geometry("600x450")
+        self.configure(fg_color="#1a1a2e")
+        self.transient(parent)
+        
+        self.after(100, self._setup_content)
+    
+    def _setup_content(self):
+        self.grab_set()
+        
+        ctk.CTkLabel(
+            self, text="📋 Prompt Generado", 
+            font=("Inter", 16, "bold"), 
+            text_color="#ffffff"
+        ).pack(pady=(20, 10))
+        
+        ctk.CTkLabel(
+            self, text="Copia este prompt para usarlo en la plataforma externa", 
+            font=("Inter", 11), text_color="#8080a0"
+        ).pack(pady=(0, 15))
+        
+        # Prompt text area
+        self.text_box = ctk.CTkTextbox(
+            self, fg_color="#252540", 
+            font=("Consolas", 12),
+            corner_radius=10
+        )
+        self.text_box.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        self.text_box.insert("0.0", self.prompt)
+        
+        # Buttons
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(pady=10)
+        
+        self.copy_btn = ctk.CTkButton(
+            btn_frame, text="📋 Copiar al Portapapeles",
+            font=("Inter", 13),
+            fg_color="#6a4aff",
+            hover_color="#8a6aff",
+            command=self._copy
+        )
+        self.copy_btn.pack(side="left", padx=5)
+        
+        ctk.CTkButton(
+            btn_frame, text="Cerrar",
+            fg_color="#3a3a5a", hover_color="#4a4a6a",
+            command=self.destroy
+        ).pack(side="left", padx=5)
+    
+    def _copy(self):
+        try:
+            pyperclip.copy(self.prompt)
+            self.copy_btn.configure(text="✅ Copiado!")
+            self.after(1500, lambda: self.copy_btn.configure(text="📋 Copiar al Portapapeles"))
+        except Exception:
+            pass
 
 
 class ContentForgeApp(ctk.CTk):
@@ -546,6 +791,8 @@ class ContentForgeApp(ctk.CTk):
         self.gen_image_btn.pack(side="left", padx=(0, 8))
         self.gen_video_btn = ctk.CTkButton(media_frame, text="🎬 Crear Video", width=140, command=self._generate_video, **media_btn_style)
         self.gen_video_btn.pack(side="left", padx=(0, 8))
+        self.gen_script_btn = ctk.CTkButton(media_frame, text="📜 Script", width=100, command=self._generate_script, **media_btn_style)
+        self.gen_script_btn.pack(side="left", padx=(0, 8))
         self.media_status = ctk.CTkLabel(media_frame, text="", font=FONTS["small"], text_color=COLORS["text_muted"])
         self.media_status.pack(side="left", padx=10)
     
@@ -614,11 +861,25 @@ class ContentForgeApp(ctk.CTk):
         # Step 1: Show style picker
         MediaStylePicker(self, self._on_image_style_selected, "image", "Estilo de Imagen")
     
-    def _on_image_style_selected(self, style_id: str, style_prompt: str):
-        """Step 2: Show format picker after style selection."""
+    def _on_image_style_selected(self, style_id: str, style_prompt: str, is_prompt_only: bool = False):
+        """Step 2: Show format/platform picker after style selection."""
         self.selected_image_style = style_id
         self.selected_style_prompt = style_prompt
-        FormatPicker(self, self._on_format_selected_image, "Formato de Imagen")
+        
+        if is_prompt_only:
+            # Show platform picker for external prompt
+            PlatformPicker(self, self._on_image_platform_selected, "image")
+        else:
+            FormatPicker(self, self._on_format_selected_image, "Formato de Imagen")
+    
+    def _on_image_platform_selected(self, platform_id: str, platform_info: dict):
+        """Generate prompt for external platform."""
+        content = self.output_text.get("0.0", "end").strip()
+        
+        # Show format picker for aspect ratio
+        self.selected_image_platform = platform_id
+        self.selected_platform_info = platform_info
+        FormatPicker(self, self._on_format_selected_for_prompt, "Formato de Imagen")
     
     def _on_format_selected_image(self, format_id: str, aspect_ratio: str):
         """Step 3: Generate image with style and format."""
@@ -655,6 +916,29 @@ class ContentForgeApp(ctk.CTk):
         self.gen_image_btn.configure(text="🖼️ Generar Imagen", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
     
+    def _on_format_selected_for_prompt(self, format_id: str, aspect_ratio: str):
+        """Generate prompt for external platform."""
+        content = self.output_text.get("0.0", "end").strip()
+        platform_id = getattr(self, 'selected_image_platform', 'midjourney')
+        platform_info = getattr(self, 'selected_platform_info', IMAGE_PLATFORMS['midjourney'])
+        
+        self.media_status.configure(text="Generando prompt...", text_color=COLORS["text_muted"])
+        
+        def generate():
+            try:
+                # Generate optimized prompt for the platform
+                prompt = self.media_gen.generate_external_prompt(
+                    content, self.selected_network, "image", platform_id, aspect_ratio
+                )
+                self.after(0, lambda: self._show_prompt_preview(prompt, platform_info['name']))
+            except Exception as e:
+                self.after(0, lambda: self.media_status.configure(text=f"❌ {e}", text_color=COLORS["accent_error"]))
+        threading.Thread(target=generate).start()
+    
+    def _show_prompt_preview(self, prompt: str, platform_name: str):
+        self.media_status.configure(text="✅ Prompt generado!", text_color=COLORS["accent_success"])
+        PromptPreview(self, prompt, platform_name)
+    
     def _generate_video(self):
         """Show style picker, then format picker before generating video."""
         content = self.output_text.get("0.0", "end").strip()
@@ -668,11 +952,42 @@ class ContentForgeApp(ctk.CTk):
         # Step 1: Show style picker for video
         MediaStylePicker(self, self._on_video_style_selected, "video", "Estilo de Video")
     
-    def _on_video_style_selected(self, style_id: str, style_prompt: str):
-        """Step 2: Show format picker after style selection."""
+    def _on_video_style_selected(self, style_id: str, style_prompt: str, is_prompt_only: bool = False):
+        """Step 2: Show format/platform picker after style selection."""
         self.selected_video_style = style_id
         self.selected_video_style_prompt = style_prompt
-        FormatPicker(self, self._on_format_selected_video, "Formato de Video")
+        
+        if is_prompt_only:
+            # Show platform picker for external video prompt
+            PlatformPicker(self, self._on_video_platform_selected, "video")
+        else:
+            FormatPicker(self, self._on_format_selected_video, "Formato de Video")
+    
+    def _on_video_platform_selected(self, platform_id: str, platform_info: dict):
+        """Generate video prompt for external platform."""
+        content = self.output_text.get("0.0", "end").strip()
+        
+        self.selected_video_platform = platform_id
+        self.selected_video_platform_info = platform_info
+        FormatPicker(self, self._on_format_selected_for_video_prompt, "Formato de Video")
+    
+    def _on_format_selected_for_video_prompt(self, format_id: str, aspect_ratio: str):
+        """Generate video prompt for external platform."""
+        content = self.output_text.get("0.0", "end").strip()
+        platform_id = getattr(self, 'selected_video_platform', 'runway')
+        platform_info = getattr(self, 'selected_video_platform_info', VIDEO_PLATFORMS['runway'])
+        
+        self.media_status.configure(text="Generando prompt...", text_color=COLORS["text_muted"])
+        
+        def generate():
+            try:
+                prompt = self.media_gen.generate_external_prompt(
+                    content, self.selected_network, "video", platform_id, aspect_ratio
+                )
+                self.after(0, lambda: self._show_prompt_preview(prompt, platform_info['name']))
+            except Exception as e:
+                self.after(0, lambda: self.media_status.configure(text=f"❌ {e}", text_color=COLORS["accent_error"]))
+        threading.Thread(target=generate).start()
     
     def _on_format_selected_video(self, format_id: str, aspect_ratio: str):
         """Step 3: Generate video with style and format."""
@@ -703,6 +1018,48 @@ class ContentForgeApp(ctk.CTk):
     
     def _on_video_error(self, error: str):
         self.gen_video_btn.configure(text="🎬 Crear Video", state="normal")
+        self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
+    
+    def _generate_script(self):
+        """Show script type picker before generating script."""
+        content = self.output_text.get("0.0", "end").strip()
+        if not content or "Tu contenido" in content:
+            self.media_status.configure(text="❌ Genera contenido primero", text_color=COLORS["accent_error"])
+            return
+        if not self.selected_network:
+            self.media_status.configure(text="❌ Selecciona una red", text_color=COLORS["accent_error"])
+            return
+        
+        # Show script type picker
+        ScriptTypePicker(self, self._on_script_type_selected)
+    
+    def _on_script_type_selected(self, script_id: str, script_info: dict):
+        """Generate script after type selection."""
+        content = self.output_text.get("0.0", "end").strip()
+        
+        self.gen_script_btn.configure(text="⏳...", state="disabled")
+        self.media_status.configure(text=f"Creando {script_info['name']}...", text_color=COLORS["text_muted"])
+        
+        def generate():
+            try:
+                script = self.media_gen.generate_script(
+                    content, self.selected_network, script_id, script_info['duration']
+                )
+                if script:
+                    self.after(0, lambda: self._on_script_complete(script, script_info['name']))
+                else:
+                    self.after(0, lambda: self._on_script_error("Error al generar guión"))
+            except Exception as e:
+                self.after(0, lambda: self._on_script_error(str(e)))
+        threading.Thread(target=generate).start()
+    
+    def _on_script_complete(self, script: str, script_name: str):
+        self.gen_script_btn.configure(text="📜 Script", state="normal")
+        self.media_status.configure(text="✅ Guión generado!", text_color=COLORS["accent_success"])
+        PromptPreview(self, script, script_name)
+    
+    def _on_script_error(self, error: str):
+        self.gen_script_btn.configure(text="📜 Script", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
     
     def _check_api_status(self):

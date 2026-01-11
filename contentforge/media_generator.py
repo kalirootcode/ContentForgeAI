@@ -347,6 +347,181 @@ Responde con el storyboard completo.
             logger.error(f"Error generating video prompt: {e}")
             return ""
     
+    def generate_external_prompt(self, content: str, network: str, media_type: str, 
+                                  platform: str, aspect_ratio: str) -> str:
+        """Generate an optimized prompt for external platforms like Midjourney, DALL-E, Runway, etc."""
+        if not self.client:
+            return ""
+        
+        # Platform-specific formatting
+        platform_formats = {
+            # Image platforms
+            "midjourney": f"--ar {aspect_ratio.replace(':', ':')} --v 6.1 --style raw",
+            "dalle": f"Aspect ratio: {aspect_ratio}",
+            "grok": f"[Format: {aspect_ratio}]",
+            "stable": f"Resolution: {aspect_ratio}, CFG: 7",
+            # Video platforms
+            "runway": f"Duration: 5 seconds, Aspect ratio: {aspect_ratio}",
+            "pika": f"Aspect: {aspect_ratio}, Style: cinematic",
+            "kling": f"Format: {aspect_ratio}, Duration: 5s, Motion: smooth",
+        }
+        
+        platform_suffix = platform_formats.get(platform, "")
+        
+        media_context = "imagen" if media_type == "image" else "video"
+        
+        system_prompt = f"""
+Eres un experto en crear prompts optimizados para plataformas de generación de {media_context} con IA.
+Analiza el contenido y crea un prompt profesional optimizado para {platform.upper()}.
+
+CONTENIDO ORIGINAL:
+{content}
+
+ESTILO: Cyberpunk/hacker, colores neón (púrpura, cian, verde), fondo oscuro, profesional, futurista.
+RED SOCIAL: {network}
+
+REGLAS:
+1. El prompt debe estar en INGLÉS
+2. Ser muy descriptivo y específico
+3. Incluir detalles de iluminación, composición, estilo
+4. Optimizar para {platform.upper()}
+5. Mantener la estética cyberpunk/tech
+
+Responde SOLO con el prompt listo para usar, seguido del formato:
+{platform_suffix}
+"""
+        
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=system_prompt,
+            )
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Error generating external prompt: {e}")
+            return ""
+    
+    def generate_script(self, content: str, network: str, script_type: str, 
+                        duration: str = "") -> str:
+        """Generate a professional video script based on content and type."""
+        if not self.client:
+            return ""
+        
+        script_templates = {
+            "reel": """
+## GUIÓN PARA REEL/SHORT (15-60s)
+
+### HOOK (0-3s)
+[Gancho inicial que capture atención]
+
+### CONTENIDO (3-45s)
+[Información principal dividida en puntos rápidos]
+
+### CTA (45-60s)
+[Llamada a la acción final]
+
+### MÚSICA/SFX
+[Sugerencias de audio]
+""",
+            "long_video": """
+## GUIÓN PARA VIDEO LARGO (3-10 min)
+
+### INTRO (0-30s)
+[Presentación y gancho]
+
+### SECCIÓN 1: [Título]
+[Contenido detallado]
+
+### SECCIÓN 2: [Título]
+[Contenido detallado]
+
+### SECCIÓN 3: [Título]
+[Contenido detallado]
+
+### CIERRE
+[Resumen y CTA]
+
+### B-ROLL SUGERIDO
+[Visuales complementarios]
+""",
+            "tutorial": """
+## GUIÓN TUTORIAL
+
+### PROBLEMA
+[Qué resolveremos]
+
+### REQUISITOS PREVIOS
+[Lo que necesitas]
+
+### PASO 1: [Título]
+[Instrucciones detalladas]
+
+### PASO 2: [Título]
+[Instrucciones detalladas]
+
+### PASO 3: [Título]
+[Instrucciones detalladas]
+
+### RESULTADO FINAL
+[Demostración del resultado]
+
+### TIPS ADICIONALES
+[Consejos extra]
+""",
+            "storytelling": """
+## GUIÓN STORYTELLING
+
+### INICIO - El Contexto
+[Presentación de la situación/personaje]
+
+### CONFLICTO - El Problema
+[El desafío o punto de inflexión]
+
+### DESARROLLO - La Jornada
+[Cómo se enfrenta el desafío]
+
+### CLÍMAX - El Momento Clave
+[El punto más intenso]
+
+### RESOLUCIÓN - El Aprendizaje
+[Conclusión y mensaje]
+
+### MÚSICA/MOOD
+[Tono emocional sugerido]
+"""
+        }
+        
+        template = script_templates.get(script_type, script_templates["reel"])
+        
+        system_prompt = f"""
+Eres un guionista experto en contenido para redes sociales.
+Crea un guión profesional basado en el siguiente contenido.
+
+CONTENIDO BASE:
+{content}
+
+RED SOCIAL: {network}
+TIPO DE GUIÓN: {script_type}
+DURACIÓN: {duration}
+
+USA ESTE FORMATO:
+{template}
+
+ESTILO: Profesional, engaging, con ganchos efectivos.
+Incluye timestamps aproximados donde sea relevante.
+Responde con el guión completo y listo para usar.
+"""
+        
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=system_prompt,
+            )
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Error generating script: {e}")
+            return ""
+    
     def _save_media_record(self, content_id: Optional[int], media_type: str, 
                            prompt_used: str, file_path: str, network: str):
         """Save generated media record to database."""
