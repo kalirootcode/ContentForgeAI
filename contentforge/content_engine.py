@@ -107,7 +107,7 @@ IMPORTANTE: Muestra cómo KR-CLI simplifica el uso de {tool_data['name']}.
         
         return extra_context
     
-    def generate(self, topic: str, save: bool = True) -> str:
+    def generate(self, topic: str, save: bool = True, length: str = "medium") -> str:
         """
         Generate content for the current network and type.
         Automatically injects KR-CLI knowledge context.
@@ -132,17 +132,28 @@ IMPORTANTE: Muestra cómo KR-CLI simplifica el uso de {tool_data['name']}.
         # Detect if topic mentions a specific tool
         tool_context = self._detect_tool_context(topic)
         
+        # Determine if we need pro model (for scripts/long content)
+        use_pro = self.current_content_type in ["script", "thread"] or length == "long"
+        
+        # Length instructions
+        length_prompts = {
+            "short": "EXTENSIÓN: Corta. Sé conciso, directo y al grano. ~50-80 palabras.",
+            "medium": "EXTENSIÓN: Media. Equilibra detalle y brevedad. Cubre puntos clave. ~150-200 palabras.",
+            "long": "EXTENSIÓN: Larga. Profundiza en el tema, sé detallado y explicativo. ~300+ palabras."
+        }
+        length_instruction = length_prompts.get(length, length_prompts["medium"])
+        
         # Build enhanced prompt with KR-CLI knowledge
         enhanced_prompt = f"""
 {KR_CLI_CONTEXT}
 {tool_context}
 
+=== INSTRUCCIONES DE EXTENSIÓN ===
+{length_instruction}
+
 === INSTRUCCIONES DE RED SOCIAL ===
 {network_prompt}
 """
-        
-        # Determine if we need pro model (for scripts/long content)
-        use_pro = self.current_content_type in ["script", "thread"]
         
         # Generate content
         content = self.ai.generate_content(

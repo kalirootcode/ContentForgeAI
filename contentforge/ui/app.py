@@ -746,10 +746,20 @@ class ContentForgeApp(ctk.CTk):
         
         ctk.CTkLabel(top_row, text="📝 Tema:", font=FONTS["body"], text_color=COLORS["text_primary"]).grid(row=0, column=0, sticky="w")
         
+        # Length selection
+        self.length_var = ctk.StringVar(value="Medio")
+        self.length_seg = ctk.CTkSegmentedButton(
+            top_row, values=["Corto", "Medio", "Largo"], variable=self.length_var,
+            font=("Segoe UI", 11), height=28,
+            fg_color=COLORS["bg_input"], selected_color=COLORS["accent_primary"],
+            selected_hover_color=COLORS["accent_secondary"]
+        )
+        self.length_seg.grid(row=0, column=1, sticky="e", padx=(0, 10))
+        
         self.generate_btn = ctk.CTkButton(top_row, text="✨ Generar", font=FONTS["body"], width=120, height=32,
                                           fg_color=COLORS["accent_primary"], hover_color=COLORS["accent_secondary"],
                                           command=self._generate_content)
-        self.generate_btn.grid(row=0, column=1, sticky="e")
+        self.generate_btn.grid(row=0, column=2, sticky="e")
         
         self.topic_entry = ctk.CTkTextbox(input_frame, height=60, font=FONTS["body"],
                                           fg_color=COLORS["bg_input"], text_color=COLORS["text_primary"],
@@ -758,6 +768,7 @@ class ContentForgeApp(ctk.CTk):
         self.topic_entry.insert("0.0", "Ej: cómo usar nmap para escanear puertos...")
         self.topic_entry.bind("<FocusIn>", self._clear_placeholder)
         
+        # Professional Output Area
         output_frame = ctk.CTkFrame(main_frame, fg_color=COLORS["bg_card"], corner_radius=8)
         output_frame.grid(row=2, column=0, sticky="nsew")
         output_frame.grid_columnconfigure(0, weight=1)
@@ -767,23 +778,27 @@ class ContentForgeApp(ctk.CTk):
         header_row.grid(row=0, column=0, padx=12, pady=8, sticky="ew")
         header_row.grid_columnconfigure(0, weight=1)
         
-        ctk.CTkLabel(header_row, text="📄 Contenido Generado", font=FONTS["body"], text_color=COLORS["text_primary"]).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(header_row, text="📄 Resultado", font=FONTS["subtitle"], text_color=COLORS["text_primary"]).grid(row=0, column=0, sticky="w")
         
         actions = ctk.CTkFrame(header_row, fg_color="transparent")
         actions.grid(row=0, column=1, sticky="e")
         
-        btn_style = {"width": 75, "height": 26, "font": ("Inter", 10), "fg_color": COLORS["bg_input"], "hover_color": COLORS["bg_hover"]}
+        btn_style = {"width": 80, "height": 28, "font": ("Segoe UI", 11), "fg_color": COLORS["bg_input"], "hover_color": COLORS["bg_hover"]}
         self.emoji_btn = ctk.CTkButton(actions, text="😀 Emoji", command=self._open_emoji_picker, **btn_style)
-        self.emoji_btn.pack(side="left", padx=2)
+        self.emoji_btn.pack(side="left", padx=3)
         self.copy_btn = ctk.CTkButton(actions, text="📋 Copiar", command=self._copy_content, **btn_style)
-        self.copy_btn.pack(side="left", padx=2)
+        self.copy_btn.pack(side="left", padx=3)
         self.regen_btn = ctk.CTkButton(actions, text="🔄 Nuevo", command=self._regenerate_content, **btn_style)
-        self.regen_btn.pack(side="left", padx=2)
+        self.regen_btn.pack(side="left", padx=3)
         
-        self.output_text = ctk.CTkTextbox(output_frame, font=("Segoe UI Emoji", 12),
-                                          fg_color=COLORS["bg_input"], text_color=COLORS["text_primary"], wrap="word")
-        self.output_text.grid(row=1, column=0, padx=12, pady=(0, 8), sticky="nsew")
-        self.output_text.insert("0.0", "Tu contenido aparecerá aquí...\n\n✏️ Editable\n😀 Agrega emojis")
+        # Elegant output textbox
+        self.output_text = ctk.CTkTextbox(
+            output_frame, font=("Segoe UI Emoji", 13),
+            fg_color="#0f1218", text_color="#e5e7eb", 
+            wrap="word", border_width=1, border_color="#1f2937", corner_radius=4
+        )
+        self.output_text.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="nsew")
+        self.output_text.insert("0.0", "Aquí aparecerá tu contenido generado por IA...\n\n1. Selecciona una red social\n2. Elige el tipo de contenido\n3. Escribe un tema y presiona Generar")
         
         media_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
         media_frame.grid(row=2, column=0, padx=12, pady=(0, 10), sticky="ew")
@@ -822,8 +837,13 @@ class ContentForgeApp(ctk.CTk):
         self._show_output("⏳ Generando contenido...\n\nEspera unos segundos...")
         self._start_progress("📝 Generando contenido...", 5.0)
         
+        # Get selected length and map to engine format
+        length_map = {"Corto": "short", "Medio": "medium", "Largo": "long"}
+        selected_length = self.length_var.get()
+        length_key = length_map.get(selected_length, "medium")
+        
         def generate():
-            result = self.engine.generate(topic)
+            result = self.engine.generate(topic, length=length_key)
             self.after(0, lambda: self._on_generate_complete(result))
         threading.Thread(target=generate).start()
     
