@@ -2,8 +2,8 @@
 customtkinter>=5.2.0
 Pillow>=10.0.0
 
-# AI
-google-generativeai>=0.3.0
+# AI - New SDK
+google-genai>=1.0.0
 
 # Utils
 python-dotenv>=1.0.0

@@ -62,14 +62,15 @@ def init_database():
         )
     """)
     
-    # Network stats table
+    # Network stats table - with UNIQUE constraint for ON CONFLICT
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS network_stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             network TEXT NOT NULL,
             content_type TEXT NOT NULL,
             generation_count INTEGER DEFAULT 0,
-            last_used TIMESTAMP
+            last_used TIMESTAMP,
+            UNIQUE(network, content_type)
         )
     """)
     
@@ -120,13 +121,16 @@ def update_network_stats(network: str, content_type: str):
     conn = get_connection()
     cursor = conn.cursor()
     
+    now = datetime.now().isoformat()
+    
+    # Use INSERT OR REPLACE for SQLite compatibility
     cursor.execute("""
         INSERT INTO network_stats (network, content_type, generation_count, last_used)
         VALUES (?, ?, 1, ?)
         ON CONFLICT(network, content_type) DO UPDATE SET
             generation_count = generation_count + 1,
-            last_used = ?
-    """, (network, content_type, datetime.now(), datetime.now()))
+            last_used = excluded.last_used
+    """, (network, content_type, now))
     
     conn.commit()
     conn.close()
@@ -148,6 +152,13 @@ def get_network_stats() -> List[Dict]:
     conn.close()
     
     return [dict(row) for row in rows]
+
+
+def reset_database():
+    """Reset the database (delete and recreate)."""
+    if DATABASE_PATH.exists():
+        DATABASE_PATH.unlink()
+    init_database()
 
 
 # Initialize database on import

@@ -1,19 +1,25 @@
 """
 Gemini AI Handler for ContentForge AI
 Professional content generation using Google Gemini API
+Using the new google.genai package
 """
 
 import logging
+import os
 from typing import Optional, Dict, List
-import google.generativeai as genai
+
+from google import genai
+from google.genai import types
 
 from .config import GEMINI_API_KEY, GEMINI_MODEL_FAST, GEMINI_MODEL_PRO
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini
+# Configure client
+_client: Optional[genai.Client] = None
+
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    _client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 class GeminiHandler:
@@ -23,16 +29,13 @@ class GeminiHandler:
     """
     
     def __init__(self):
-        self.model_fast = None
-        self.model_pro = None
-        
-        if GEMINI_API_KEY:
-            self.model_fast = genai.GenerativeModel(GEMINI_MODEL_FAST)
-            self.model_pro = genai.GenerativeModel(GEMINI_MODEL_PRO)
+        self.client = _client
+        self.model_fast = GEMINI_MODEL_FAST
+        self.model_pro = GEMINI_MODEL_PRO
     
     def is_configured(self) -> bool:
         """Check if Gemini API is configured."""
-        return self.model_fast is not None
+        return self.client is not None
     
     def generate_content(
         self, 
@@ -71,7 +74,10 @@ TIPO DE CONTENIDO: {content_type}
 Genera el contenido ahora, listo para publicar. Responde SOLO con el contenido, sin explicaciones adicionales.
 """
             
-            response = model.generate_content(full_prompt)
+            response = self.client.models.generate_content(
+                model=model,
+                contents=full_prompt
+            )
             return response.text
             
         except Exception as e:
@@ -118,7 +124,10 @@ Formato de respuesta JSON:
 Responde SOLO con el JSON, sin explicaciones.
 """
             
-            response = self.model_pro.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_pro,
+                contents=prompt
+            )
             import json
             return json.loads(response.text)
             
@@ -156,7 +165,10 @@ Reglas:
 Responde SOLO con los 5 captions, numerados del 1 al 5.
 """
             
-            response = self.model_fast.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_fast,
+                contents=prompt
+            )
             lines = [l.strip() for l in response.text.split('\n') if l.strip()]
             return lines[:5]
             
@@ -190,7 +202,10 @@ Mejora el contenido según las sugerencias. Mantén la esencia pero hazlo más e
 Responde SOLO con el contenido mejorado.
 """
             
-            response = self.model_fast.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_fast,
+                contents=prompt
+            )
             return response.text
             
         except Exception as e:
@@ -225,7 +240,10 @@ Reglas:
 Responde SOLO con los hashtags, uno por línea.
 """
             
-            response = self.model_fast.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_fast,
+                contents=prompt
+            )
             hashtags = [f"#{h.strip().replace('#', '')}" for h in response.text.split('\n') if h.strip()]
             return hashtags[:count]
             
@@ -242,7 +260,10 @@ def test_connection() -> bool:
         return False
     
     try:
-        response = handler.model_fast.generate_content("Di 'Hola, ContentForge!'")
+        response = handler.client.models.generate_content(
+            model=handler.model_fast,
+            contents="Di 'Hola, ContentForge!'"
+        )
         print(f"✅ Conexión exitosa: {response.text[:50]}...")
         return True
     except Exception as e:
