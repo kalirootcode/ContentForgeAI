@@ -92,54 +92,70 @@ Responde SOLO con el prompt de imagen, sin explicaciones.
             return ""
     
     def generate_image(self, prompt: str, network: str, content_id: Optional[int] = None) -> Optional[str]:
-        """Generate an image using Gemini Imagen API."""
+        """Generate an image using Gemini's image generation capability."""
         if not self.client:
             logger.error("Gemini client not initialized")
             return None
         
         branding = self._get_branding_instructions(network, 'image')
-        full_prompt = f"{prompt}\n\nStyle: {branding}"
+        full_prompt = f"""Generate an image for this request:
+{prompt}
+
+Style guidelines:
+{branding}
+
+Important: Create a visually striking, professional image suitable for social media. 
+Use cyberpunk/tech aesthetic with dark backgrounds and neon accents (purple, cyan, green).
+"""
         
         try:
-            # Use Imagen 3 model for image generation
-            response = self.client.models.generate_images(
-                model="imagen-3.0-generate-002",
-                prompt=full_prompt,
-                config=types.GenerateImagesConfig(
-                    number_of_images=1,
-                    aspect_ratio="16:9",
-                    safety_filter_level="BLOCK_ONLY_HIGH",
+            # Use Gemini 2.0 Flash with image generation
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash-exp",
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
                 )
             )
             
-            if response.generated_images:
-                # Save the image
-                image_data = response.generated_images[0].image.image_bytes
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"{network}_{timestamp}.png"
-                filepath = IMAGES_DIR / filename
-                
-                # Save image file
-                with open(filepath, 'wb') as f:
-                    f.write(image_data)
-                
-                # Save to database
-                self._save_media_record(
-                    content_id=content_id,
-                    media_type='image',
-                    prompt_used=prompt,
-                    file_path=str(filepath),
-                    network=network
-                )
-                
-                logger.info(f"Image generated and saved: {filepath}")
-                return str(filepath)
+            # Check if image was generated
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        # Save the image
+                        image_data = part.inline_data.data
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"{network}_{timestamp}.png"
+                        filepath = IMAGES_DIR / filename
+                        
+                        # Decode and save
+                        import base64
+                        if isinstance(image_data, str):
+                            image_bytes = base64.b64decode(image_data)
+                        else:
+                            image_bytes = image_data
+                        
+                        with open(filepath, 'wb') as f:
+                            f.write(image_bytes)
+                        
+                        # Save to database
+                        self._save_media_record(
+                            content_id=content_id,
+                            media_type='image',
+                            prompt_used=prompt,
+                            file_path=str(filepath),
+                            network=network
+                        )
+                        
+                        logger.info(f"Image generated and saved: {filepath}")
+                        return str(filepath)
+            
+            logger.warning("No image generated in response")
+            return None
             
         except Exception as e:
             logger.error(f"Error generating image: {e}")
             return None
-        
-        return None
     
     def generate_video_prompt(self, content: str, network: str) -> str:
         """Generate a detailed video script/storyboard prompt."""
