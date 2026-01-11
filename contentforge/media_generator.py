@@ -56,12 +56,15 @@ class MediaGenerator:
             return row['branding_instructions']
         return ""
     
-    def analyze_content_for_image(self, content: str, network: str) -> str:
-        """Analyze content and generate an optimized image prompt."""
+    def analyze_content_for_image(self, content: str, network: str, style_prompt: str = "") -> str:
+        """Analyze content and generate an optimized image prompt with style."""
         if not self.client:
             return ""
         
         branding = self._get_branding_instructions(network, 'image')
+        
+        # Build style instructions
+        style_instruction = f"\nESTILO REQUERIDO: {style_prompt}\n" if style_prompt else ""
         
         system_prompt = f"""
 Eres un experto en crear prompts para generación de imágenes AI.
@@ -69,17 +72,16 @@ Analiza el siguiente contenido de redes sociales y crea un prompt detallado
 para generar una imagen que complemente perfectamente el contenido.
 
 {branding}
-
+{style_instruction}
 REGLAS:
 1. El prompt debe ser en inglés (mejor para AI de imágenes)
-2. Incluir estilo visual específico
+2. Incluir estilo visual específico según el estilo requerido
 3. Mencionar colores, iluminación, composición
-4. Especificar el formato (16:9 para posts, 9:16 para stories)
-5. Mantener el branding cyberpunk/hacker
-6. NO incluir texto en la imagen (difícil de generar correctamente)
+4. Mantener el branding cyberpunk/hacker con acentos de neón
+5. Adaptar el diseño al estilo seleccionado
+6. Ser muy específico y descriptivo
 
-Responde SOLO con el prompt de imagen, sin explicaciones.
-"""
+Responde SOLO con el prompt de imagen, sin explicaciones."""
         
         try:
             response = self.client.models.generate_content(
@@ -170,19 +172,22 @@ Use cyberpunk/tech aesthetic with dark backgrounds and neon accents (purple, cya
             logger.error(f"Error generating image: {e}")
             return None
     
-    def generate_video(self, content: str, network: str, aspect_ratio: str = "16:9", content_id: Optional[int] = None) -> Optional[str]:
-        """Generate a video using Gemini Veo API."""
+    def generate_video(self, content: str, network: str, aspect_ratio: str = "16:9", content_id: Optional[int] = None, style_prompt: str = "") -> Optional[str]:
+        """Generate a video using Gemini Veo API with style."""
         if not self.client:
             logger.error("Gemini client not initialized")
             return None
         
         branding = self._get_branding_instructions(network, 'video')
         
-        # Create video prompt from content - summarized for Veo
+        # Build style instruction
+        style_instruction = f"Style: {style_prompt}. " if style_prompt else ""
+        
+        # Create video prompt from content with style
         video_prompt = f"""Cyberpunk tech video: {content[:200]}
-Style: Dark background, neon purple/cyan/green accents, futuristic, professional.
-Motion: Smooth camera movements, subtle glitch effects, tech elements.
-Suitable for {network}."""
+{style_instruction}Background: Dark, neon purple/cyan/green accents, futuristic, professional.
+Motion: Smooth camera movements, dynamic transitions, tech-inspired elements.
+Suitable for {network}. Aspect ratio: {aspect_ratio}."""
         
         try:
             # Map aspect ratio to Veo format

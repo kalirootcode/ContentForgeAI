@@ -194,6 +194,139 @@ class FormatPicker(ctk.CTkToplevel):
         self.destroy()
 
 
+# Professional Media Styles
+IMAGE_STYLES = {
+    "minimalist": {
+        "name": "🎯 Minimalista",
+        "desc": "Diseño limpio, un elemento focal",
+        "prompt": "Minimalist design, clean composition, single focal element, lots of negative space, professional, elegant"
+    },
+    "with_text": {
+        "name": "📝 Con Texto",
+        "desc": "Overlay con título/quote",
+        "prompt": "Design with space for text overlay, bold typography area, contrasting background for readability, social media quote style"
+    },
+    "infographic": {
+        "name": "📊 Infográfica",
+        "desc": "Datos visuales, estadísticas",
+        "prompt": "Infographic style, data visualization, icons, charts, step-by-step layout, educational, informative design"
+    },
+    "illustration": {
+        "name": "🎨 Ilustración",
+        "desc": "Estilo artístico, ilustrado",
+        "prompt": "Artistic illustration style, hand-drawn feel, creative, colorful, unique artistic interpretation"
+    },
+    "mockup_ui": {
+        "name": "💻 Mockup/UI",
+        "desc": "Estilo interfaz, código, terminal",
+        "prompt": "Tech mockup, code editor style, terminal interface, UI design, developer aesthetic, screen display"
+    },
+    "meme_viral": {
+        "name": "😂 Meme/Viral",
+        "desc": "Formato trending, engagement",
+        "prompt": "Meme format, viral social media style, humorous, relatable, trending format, high engagement design"
+    },
+}
+
+VIDEO_STYLES = {
+    "representative": {
+        "name": "🎬 Representativo",
+        "desc": "Ilustra visualmente el concepto",
+        "prompt": "Visual representation of the concept, cinematic, smooth motion, professional footage style"
+    },
+    "kinetic_text": {
+        "name": "✨ Texto Animado",
+        "desc": "Typography cinética, títulos",
+        "prompt": "Kinetic typography, animated text, dynamic titles, motion graphics, bold typography animation"
+    },
+    "tutorial": {
+        "name": "📚 Tutorial",
+        "desc": "Paso a paso visual",
+        "prompt": "Tutorial style, step-by-step visual guide, educational, clear demonstration, how-to format"
+    },
+    "promo_teaser": {
+        "name": "🚀 Promo/Teaser",
+        "desc": "Estilo trailer, impactante",
+        "prompt": "Promotional teaser, trailer style, dramatic, impactful, exciting reveal, call to action"
+    },
+    "loop": {
+        "name": "🔄 Loop Animado",
+        "desc": "Animación que repite",
+        "prompt": "Seamless loop animation, satisfying repeat, mesmerizing motion, perfect for stories and reels"
+    },
+}
+
+
+class MediaStylePicker(ctk.CTkToplevel):
+    """Dialog for selecting image/video style."""
+    
+    def __init__(self, parent, callback, media_type="image", title="Selecciona Estilo"):
+        super().__init__(parent)
+        self.callback = callback
+        self.media_type = media_type
+        self.styles = IMAGE_STYLES if media_type == "image" else VIDEO_STYLES
+        self.title(title)
+        self.geometry("400x450")
+        self.configure(fg_color="#1a1a2e")
+        self.transient(parent)
+        
+        self.after(100, self._setup_content)
+    
+    def _setup_content(self):
+        self.grab_set()
+        
+        icon = "🖼️" if self.media_type == "image" else "🎬"
+        ctk.CTkLabel(
+            self, text=f"{icon} Selecciona el estilo", 
+            font=("Inter", 16, "bold"), 
+            text_color="#ffffff"
+        ).pack(pady=(20, 10))
+        
+        ctk.CTkLabel(
+            self, text="El estilo define cómo se generará tu contenido", 
+            font=("Inter", 11), 
+            text_color="#8080a0"
+        ).pack(pady=(0, 15))
+        
+        container = ctk.CTkScrollableFrame(self, fg_color="#252540", corner_radius=10)
+        container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        for style_id, style_info in self.styles.items():
+            frame = ctk.CTkFrame(container, fg_color="#1e1e35", corner_radius=8)
+            frame.pack(fill="x", padx=5, pady=4)
+            
+            btn = ctk.CTkButton(
+                frame,
+                text=f"  {style_info['name']}",
+                font=("Inter", 13),
+                height=40,
+                anchor="w",
+                fg_color="transparent",
+                hover_color="#3a3a6a",
+                corner_radius=6,
+                command=lambda s=style_id: self._select(s)
+            )
+            btn.pack(fill="x", padx=5, pady=2)
+            
+            ctk.CTkLabel(
+                frame, text=style_info['desc'],
+                font=("Inter", 10),
+                text_color="#7070a0",
+            ).pack(anchor="w", padx=15, pady=(0, 8))
+        
+        ctk.CTkButton(
+            self, text="Cancelar", 
+            fg_color="#3a3a5a", 
+            hover_color="#4a4a6a",
+            command=self.destroy
+        ).pack(pady=10)
+    
+    def _select(self, style_id: str):
+        style_info = self.styles[style_id]
+        self.callback(style_id, style_info["prompt"])
+        self.destroy()
+
+
 class ContentForgeApp(ctk.CTk):
     """Main application window with collapsible network menus and media generation."""
     
@@ -469,7 +602,7 @@ class ContentForgeApp(ctk.CTk):
                 self._show_output(f"❌ Error: {e}")
     
     def _generate_image(self):
-        """Show format picker before generating image."""
+        """Show style picker, then format picker before generating image."""
         content = self.output_text.get("0.0", "end").strip()
         if not content or "Tu contenido" in content:
             self.media_status.configure(text="❌ Genera contenido primero", text_color=COLORS["accent_error"])
@@ -478,19 +611,28 @@ class ContentForgeApp(ctk.CTk):
             self.media_status.configure(text="❌ Selecciona una red", text_color=COLORS["accent_error"])
             return
         
-        # Show format picker
+        # Step 1: Show style picker
+        MediaStylePicker(self, self._on_image_style_selected, "image", "Estilo de Imagen")
+    
+    def _on_image_style_selected(self, style_id: str, style_prompt: str):
+        """Step 2: Show format picker after style selection."""
+        self.selected_image_style = style_id
+        self.selected_style_prompt = style_prompt
         FormatPicker(self, self._on_format_selected_image, "Formato de Imagen")
     
     def _on_format_selected_image(self, format_id: str, aspect_ratio: str):
-        """Called when user selects an image format."""
+        """Step 3: Generate image with style and format."""
         content = self.output_text.get("0.0", "end").strip()
+        style_prompt = getattr(self, 'selected_style_prompt', '')
+        style_id = getattr(self, 'selected_image_style', 'minimalist')
         
+        style_name = IMAGE_STYLES.get(style_id, {}).get('name', style_id)
         self.gen_image_btn.configure(text="⏳...", state="disabled")
-        self.media_status.configure(text=f"Creando imagen {aspect_ratio}...", text_color=COLORS["text_muted"])
+        self.media_status.configure(text=f"Creando {style_name} {aspect_ratio}...", text_color=COLORS["text_muted"])
         
         def generate():
             try:
-                prompt = self.media_gen.analyze_content_for_image(content, self.selected_network)
+                prompt = self.media_gen.analyze_content_for_image(content, self.selected_network, style_prompt)
                 if not prompt:
                     self.after(0, lambda: self._on_image_error("No se pudo generar prompt"))
                     return
@@ -514,7 +656,7 @@ class ContentForgeApp(ctk.CTk):
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
     
     def _generate_video(self):
-        """Show format picker before generating video."""
+        """Show style picker, then format picker before generating video."""
         content = self.output_text.get("0.0", "end").strip()
         if not content or "Tu contenido" in content:
             self.media_status.configure(text="❌ Genera contenido primero", text_color=COLORS["accent_error"])
@@ -523,19 +665,28 @@ class ContentForgeApp(ctk.CTk):
             self.media_status.configure(text="❌ Selecciona una red", text_color=COLORS["accent_error"])
             return
         
-        # Show format picker for video
+        # Step 1: Show style picker for video
+        MediaStylePicker(self, self._on_video_style_selected, "video", "Estilo de Video")
+    
+    def _on_video_style_selected(self, style_id: str, style_prompt: str):
+        """Step 2: Show format picker after style selection."""
+        self.selected_video_style = style_id
+        self.selected_video_style_prompt = style_prompt
         FormatPicker(self, self._on_format_selected_video, "Formato de Video")
     
     def _on_format_selected_video(self, format_id: str, aspect_ratio: str):
-        """Called when user selects a video format."""
+        """Step 3: Generate video with style and format."""
         content = self.output_text.get("0.0", "end").strip()
+        style_prompt = getattr(self, 'selected_video_style_prompt', '')
+        style_id = getattr(self, 'selected_video_style', 'representative')
         
+        style_name = VIDEO_STYLES.get(style_id, {}).get('name', style_id)
         self.gen_video_btn.configure(text="⏳...", state="disabled")
-        self.media_status.configure(text=f"Creando video {aspect_ratio}...", text_color=COLORS["text_muted"])
+        self.media_status.configure(text=f"Creando {style_name} {aspect_ratio}...", text_color=COLORS["text_muted"])
         
         def generate():
             try:
-                video_path = self.media_gen.generate_video(content, self.selected_network, aspect_ratio, self.current_content_id)
+                video_path = self.media_gen.generate_video(content, self.selected_network, aspect_ratio, self.current_content_id, style_prompt)
                 if video_path:
                     self.after(0, lambda: self._on_video_complete(video_path))
                 else:
@@ -547,7 +698,6 @@ class ContentForgeApp(ctk.CTk):
     def _on_video_complete(self, video_path: str):
         self.gen_video_btn.configure(text="🎬 Crear Video", state="normal")
         self.media_status.configure(text="✅ Video creado!", text_color=COLORS["accent_success"])
-        # Open file manager to show video
         import subprocess
         subprocess.run(["xdg-open", str(Path(video_path).parent)])
     
