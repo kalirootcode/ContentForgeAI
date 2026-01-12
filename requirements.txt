@@ -8,6 +8,10 @@ google-genai>=1.0.0
 # Web Research
 duckduckgo-search>=6.0.0
 
+# API Server
+flask>=3.0.0
+flask-cors>=4.0.0
+
 # Utils
 python-dotenv>=1.0.0
 pyperclip>=1.8.2

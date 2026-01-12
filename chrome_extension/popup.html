@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContentForge AI</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">🚀 ContentForge AI</div>
+            <div class="subtitle">Extractor de Contenido</div>
+        </header>
+
+        <div class="status-bar" id="statusBar">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Verificando conexión...</span>
+        </div>
+
+        <div class="content-preview" id="contentPreview">
+            <div class="preview-title" id="previewTitle">Título de la página</div>
+            <div class="preview-url" id="previewUrl">URL actual</div>
+            <div class="preview-text" id="previewText">El contenido extraído aparecerá aquí...</div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="extractBtn">
+                📥 Extraer Contenido
+            </button>
+            <button class="btn btn-secondary" id="sendBtn" disabled>
+                🚀 Enviar a ContentForge
+            </button>
+        </div>
+
+        <div class="result" id="result" style="display: none;">
+            <div class="result-icon">✅</div>
+            <div class="result-text">Contenido enviado correctamente</div>
+        </div>
+
+        <footer>
+            <a href="#" id="openApp">Abrir ContentForge AI</a>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
