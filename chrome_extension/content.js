@@ -219,7 +219,7 @@ function extractTikTok(options) {
 }
 
 /**
- * Facebook Extraction
+ * Facebook Extraction - Enhanced with multiple fallback selectors
  */
 function extractFacebook(options) {
     const result = {
@@ -233,49 +233,146 @@ function extractFacebook(options) {
         itemCount: 0
     };
 
-    // Post content
-    const postEl = document.querySelector('[data-ad-preview="message"]') ||
-        document.querySelector('[data-testid="post_message"]') ||
-        document.querySelector('[dir="auto"][style*="webkit-line-clamp"]');
-    if (postEl) {
-        result.description = postEl.innerText.trim();
-        result.title = result.description.substring(0, 100);
-        result.itemCount++;
+    // Post content - try multiple selectors
+    const postSelectors = [
+        '[data-ad-preview="message"]',
+        '[data-testid="post_message"]',
+        'div[dir="auto"][data-ad-comet-preview="message"]',
+        'div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs span[dir="auto"]',
+        'span.x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u',
+        '[class*="userContent"]',
+        'div[data-ad-preview="message"]',
+        // Generic: any text block in a post
+        'div[role="article"] div[dir="auto"]'
+    ];
+
+    for (const sel of postSelectors) {
+        try {
+            const elements = document.querySelectorAll(sel);
+            for (const el of elements) {
+                const text = el.innerText?.trim();
+                if (text && text.length > 20 && !text.includes('Me gusta') && !text.includes('Comentar')) {
+                    result.description = text;
+                    result.title = text.substring(0, 100);
+                    result.itemCount++;
+                    break;
+                }
+            }
+            if (result.description) break;
+        } catch (e) { }
     }
 
-    // Author
-    const authorEl = document.querySelector('h2 a[role="link"]') ||
-        document.querySelector('strong a');
-    if (authorEl) {
-        result.author = authorEl.innerText.trim();
-        result.itemCount++;
+    // If no description, try meta
+    if (!result.description) {
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc?.content) {
+            result.description = metaDesc.content;
+            result.title = result.description.substring(0, 100);
+            result.itemCount++;
+        }
     }
 
-    // Hashtags
-    if (options.includeHashtags) {
+    // Author - try multiple selectors
+    const authorSelectors = [
+        'h2 a[role="link"]',
+        'strong a[role="link"]',
+        'a.x1i10hfl.xjbqb8w.x6umber.x1ejq31n strong',
+        'span.xt0psk2 a',
+        'a[aria-label][role="link"] span',
+        'h3 a[role="link"]',
+        'div[role="article"] h2 a'
+    ];
+
+    for (const sel of authorSelectors) {
+        try {
+            const el = document.querySelector(sel);
+            if (el && el.innerText && el.innerText.length > 1) {
+                result.author = el.innerText.trim();
+                result.itemCount++;
+                break;
+            }
+        } catch (e) { }
+    }
+
+    // Hashtags - extract from description
+    if (options.includeHashtags && result.description) {
         const hashtagMatches = result.description.match(/#[\w\u00C0-\u024F]+/g) || [];
         result.hashtags = hashtagMatches;
+        if (result.hashtags.length > 0) result.itemCount += result.hashtags.length;
     }
 
-    // Stats - reactions, comments, shares from the reaction bar
+    // Stats - reactions, comments, shares
     if (options.includeStats) {
-        const statsText = document.querySelector('[aria-label*="reacciones"]') ||
-            document.querySelector('[aria-label*="reactions"]');
-        if (statsText) {
-            result.stats.likes = parseStatNumber(statsText.getAttribute('aria-label') || '0');
+        // Reactions/Likes
+        const reactionSelectors = [
+            '[aria-label*="reaccion"]',
+            '[aria-label*="reaction"]',
+            '[aria-label*="Me gusta"]',
+            '[aria-label*="Like"]',
+            'span.x1rg5ohu span'
+        ];
+
+        for (const sel of reactionSelectors) {
+            const el = document.querySelector(sel);
+            if (el) {
+                const label = el.getAttribute('aria-label') || el.innerText;
+                if (label) {
+                    result.stats.likes = parseStatNumber(label);
+                    break;
+                }
+            }
         }
+
+        // Comments count
+        const commentCountEls = document.querySelectorAll('span[dir="auto"]');
+        for (const el of commentCountEls) {
+            const text = el.innerText;
+            if (text && (text.includes('comentario') || text.includes('comment'))) {
+                result.stats.comments = parseStatNumber(text);
+                break;
+            }
+        }
+
+        // Shares count
+        for (const el of commentCountEls) {
+            const text = el.innerText;
+            if (text && (text.includes('veces compartido') || text.includes('share'))) {
+                result.stats.shares = parseStatNumber(text);
+                break;
+            }
+        }
+
+        result.itemCount++;
     }
 
     // Comments
     if (options.includeComments) {
-        const commentEls = document.querySelectorAll('[data-testid="comment"]') ||
-            document.querySelectorAll('[aria-label="Comentario"]');
-        result.comments = Array.from(commentEls).slice(0, 15).map(el => ({
-            user: el.querySelector('a')?.innerText || 'Usuario',
-            text: el.querySelector('[dir="auto"]')?.innerText || ''
-        })).filter(c => c.text);
-        result.itemCount += result.comments.length;
+        const commentContainers = [
+            'div[aria-label*="Comentario"]',
+            'div[aria-label*="Comment"]',
+            'ul li[class*="Comment"]',
+            'div[role="article"] div[role="article"]'
+        ];
+
+        for (const sel of commentContainers) {
+            const commentEls = document.querySelectorAll(sel);
+            if (commentEls.length > 0) {
+                result.comments = Array.from(commentEls).slice(0, 15).map(el => {
+                    const userEl = el.querySelector('a[role="link"]') || el.querySelector('a');
+                    const textEl = el.querySelector('div[dir="auto"]') || el.querySelector('span[dir="auto"]');
+                    return {
+                        user: userEl?.innerText?.trim() || 'Usuario',
+                        text: textEl?.innerText?.trim() || ''
+                    };
+                }).filter(c => c.text && c.text.length > 2);
+                result.itemCount += result.comments.length;
+                break;
+            }
+        }
     }
+
+    // Log for debugging
+    console.log('Facebook Extraction Result:', result);
 
     return result;
 }
