@@ -13,6 +13,9 @@ from PIL import Image
 from ..config import APP_NAME, APP_VERSION, SOCIAL_NETWORKS, CONTENT_TYPES, validate_config
 from ..content_engine import ContentEngine
 from ..media_generator import get_media_generator
+from ..settings_manager import get_settings_manager
+from ..web_researcher import get_web_researcher
+from ..retention_generator import get_retention_generator
 from .themes import COLORS, FONTS
 from .icons import get_network_icon, get_content_icon
 
@@ -572,6 +575,201 @@ class PromptPreview(ctk.CTkToplevel):
             pass
 
 
+class SettingsWindow(ctk.CTkToplevel):
+    """Settings window for managing social media links."""
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("⚙️ Configuración - Links de Investigación")
+        self.geometry("600x500")
+        self.configure(fg_color=COLORS["bg_dark"])
+        self.transient(parent)
+        
+        self.settings = get_settings_manager()
+        self._create_ui()
+    
+    def _create_ui(self):
+        # Header
+        ctk.CTkLabel(self, text="📋 Links para Investigación", font=FONTS["title"], text_color=COLORS["text_primary"]).pack(pady=(15, 5))
+        ctk.CTkLabel(self, text="Agrega links de grupos/páginas para analizar", font=FONTS["small"], text_color=COLORS["text_muted"]).pack()
+        
+        # Add link section
+        add_frame = ctk.CTkFrame(self, fg_color=COLORS["bg_card"], corner_radius=8)
+        add_frame.pack(fill="x", padx=15, pady=10)
+        
+        ctk.CTkLabel(add_frame, text="Agregar Nuevo Link", font=FONTS["heading"], text_color=COLORS["text_primary"]).pack(anchor="w", padx=10, pady=(10, 5))
+        
+        input_row = ctk.CTkFrame(add_frame, fg_color="transparent")
+        input_row.pack(fill="x", padx=10, pady=5)
+        
+        self.section_var = ctk.StringVar(value="facebook_groups")
+        ctk.CTkOptionMenu(input_row, values=["facebook_groups", "facebook_pages", "twitter_accounts", "other_links"],
+                          variable=self.section_var, width=150, fg_color=COLORS["bg_input"]).pack(side="left", padx=(0, 5))
+        
+        self.name_entry = ctk.CTkEntry(input_row, placeholder_text="Nombre", width=120, fg_color=COLORS["bg_input"])
+        self.name_entry.pack(side="left", padx=5)
+        
+        self.url_entry = ctk.CTkEntry(input_row, placeholder_text="URL del link", width=200, fg_color=COLORS["bg_input"])
+        self.url_entry.pack(side="left", padx=5, fill="x", expand=True)
+        
+        ctk.CTkButton(input_row, text="➕", width=40, fg_color=COLORS["accent_primary"], command=self._add_link).pack(side="left", padx=5)
+        
+        # Links list
+        ctk.CTkLabel(self, text="Links Configurados", font=FONTS["heading"], text_color=COLORS["text_primary"]).pack(anchor="w", padx=15, pady=(10, 5))
+        
+        self.links_frame = ctk.CTkScrollableFrame(self, fg_color=COLORS["bg_card"], corner_radius=8)
+        self.links_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        self._refresh_links()
+    
+    def _add_link(self):
+        section = self.section_var.get()
+        name = self.name_entry.get().strip()
+        url = self.url_entry.get().strip()
+        
+        if name and url:
+            self.settings.add_link(section, name, url)
+            self.name_entry.delete(0, "end")
+            self.url_entry.delete(0, "end")
+            self._refresh_links()
+    
+    def _remove_link(self, section: str, url: str):
+        self.settings.remove_link(section, url)
+        self._refresh_links()
+    
+    def _refresh_links(self):
+        for widget in self.links_frame.winfo_children():
+            widget.destroy()
+        
+        all_links = self.settings.get_all_links()
+        section_names = {"facebook_groups": "📘 Grupos FB", "facebook_pages": "📄 Páginas FB", 
+                         "twitter_accounts": "🐦 Twitter", "other_links": "🔗 Otros"}
+        
+        for section, links in all_links.items():
+            if links:
+                ctk.CTkLabel(self.links_frame, text=section_names.get(section, section), 
+                            font=FONTS["heading"], text_color=COLORS["accent_cyan"]).pack(anchor="w", pady=(10, 3))
+                
+                for link in links:
+                    row = ctk.CTkFrame(self.links_frame, fg_color=COLORS["bg_input"], corner_radius=4)
+                    row.pack(fill="x", pady=2)
+                    ctk.CTkLabel(row, text=f"{link['name']}: {link['url'][:40]}...", font=FONTS["small"], 
+                                text_color=COLORS["text_secondary"]).pack(side="left", padx=10, pady=5)
+                    ctk.CTkButton(row, text="🗑️", width=30, fg_color=COLORS["accent_error"], height=24,
+                                 command=lambda s=section, u=link['url']: self._remove_link(s, u)).pack(side="right", padx=5, pady=3)
+
+
+class ResearchWindow(ctk.CTkToplevel):
+    """Research window for analyzing content and generating retention comments."""
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("🔍 Investigar y Generar Comentarios")
+        self.geometry("800x600")
+        self.configure(fg_color=COLORS["bg_dark"])
+        self.transient(parent)
+        
+        self.researcher = get_web_researcher()
+        self.generator = get_retention_generator()
+        self._create_ui()
+    
+    def _create_ui(self):
+        # Header
+        ctk.CTkLabel(self, text="🔍 Investigación Web", font=FONTS["title"], text_color=COLORS["text_primary"]).pack(pady=(15, 5))
+        
+        # Search section
+        search_frame = ctk.CTkFrame(self, fg_color=COLORS["bg_card"], corner_radius=8)
+        search_frame.pack(fill="x", padx=15, pady=10)
+        
+        search_row = ctk.CTkFrame(search_frame, fg_color="transparent")
+        search_row.pack(fill="x", padx=10, pady=10)
+        
+        self.query_entry = ctk.CTkEntry(search_row, placeholder_text="Buscar tema o pegar contenido de post...", 
+                                        width=400, height=35, fg_color=COLORS["bg_input"])
+        self.query_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        self.platform_var = ctk.StringVar(value="facebook")
+        ctk.CTkOptionMenu(search_row, values=["facebook", "twitter", "linkedin", "general"], 
+                          variable=self.platform_var, width=120, fg_color=COLORS["bg_input"]).pack(side="left", padx=5)
+        
+        ctk.CTkButton(search_row, text="🔍 Buscar", width=100, fg_color=COLORS["accent_primary"],
+                      command=self._do_search).pack(side="left", padx=5)
+        
+        # Results area
+        results_label = ctk.CTkFrame(self, fg_color="transparent")
+        results_label.pack(fill="x", padx=15)
+        ctk.CTkLabel(results_label, text="📊 Resultados", font=FONTS["heading"], text_color=COLORS["text_primary"]).pack(side="left")
+        ctk.CTkButton(results_label, text="💬 Generar Comentario", width=160, fg_color=COLORS["accent_cyan"],
+                      command=self._generate_comment).pack(side="right")
+        
+        self.results_text = ctk.CTkTextbox(self, fg_color=COLORS["bg_input"], font=("Segoe UI", 11), wrap="word")
+        self.results_text.pack(fill="both", expand=True, padx=15, pady=10)
+        self.results_text.insert("0.0", "Los resultados de búsqueda aparecerán aquí...\n\n1. Escribe un tema para buscar\n2. O pega el contenido de un post para analizarlo\n3. Presiona 'Generar Comentario' para crear un comentario de retención")
+        
+        # Generated comment area
+        ctk.CTkLabel(self, text="✨ Comentario Generado", font=FONTS["heading"], text_color=COLORS["text_primary"]).pack(anchor="w", padx=15)
+        
+        self.comment_text = ctk.CTkTextbox(self, fg_color="#0f1218", font=("Segoe UI", 13), height=100, wrap="word")
+        self.comment_text.pack(fill="x", padx=15, pady=(5, 10))
+        
+        # Bottom buttons
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(pady=10)
+        ctk.CTkButton(btn_frame, text="📋 Copiar Comentario", fg_color=COLORS["accent_primary"],
+                      command=self._copy_comment).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="Cerrar", fg_color=COLORS["bg_hover"], command=self.destroy).pack(side="left", padx=5)
+    
+    def _do_search(self):
+        query = self.query_entry.get().strip()
+        if not query:
+            return
+        
+        self.results_text.delete("0.0", "end")
+        self.results_text.insert("0.0", "🔍 Buscando...")
+        
+        def search():
+            platform = self.platform_var.get()
+            if platform == "general":
+                results = self.researcher.search(query, max_results=5)
+            else:
+                results = self.researcher.search_social(platform, query, max_results=5)
+            
+            text = f"Resultados para: {query}\n{'─' * 50}\n\n"
+            for i, r in enumerate(results, 1):
+                text += f"{i}. {r.get('title', 'Sin título')}\n"
+                text += f"   {r.get('body', '')[:200]}...\n"
+                text += f"   🔗 {r.get('href', '')}\n\n"
+            
+            self.after(0, lambda: self.results_text.delete("0.0", "end"))
+            self.after(0, lambda: self.results_text.insert("0.0", text if results else "No se encontraron resultados."))
+        
+        threading.Thread(target=search).start()
+    
+    def _generate_comment(self):
+        content = self.results_text.get("0.0", "end").strip()
+        if not content or "Buscando" in content:
+            return
+        
+        self.comment_text.delete("0.0", "end")
+        self.comment_text.insert("0.0", "⏳ Generando comentario...")
+        
+        def generate():
+            platform = self.platform_var.get()
+            comment = self.generator.generate_retention_comment(content, platform)
+            self.after(0, lambda: self.comment_text.delete("0.0", "end"))
+            self.after(0, lambda: self.comment_text.insert("0.0", comment if comment else "Error al generar"))
+        
+        threading.Thread(target=generate).start()
+    
+    def _copy_comment(self):
+        comment = self.comment_text.get("0.0", "end").strip()
+        if comment:
+            try:
+                pyperclip.copy(comment)
+            except:
+                pass
+
+
 class ContentForgeApp(ctk.CTk):
     """Main application window with collapsible network menus and media generation."""
     
@@ -620,6 +818,21 @@ class ContentForgeApp(ctk.CTk):
         
         for network in SOCIAL_NETWORKS:
             self._create_network_section(network)
+        
+        # Tools Section
+        ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["bg_hover"]).pack(fill="x", padx=12, pady=10)
+        ctk.CTkLabel(self.sidebar, text="HERRAMIENTAS", font=("Inter", 10, "bold"), text_color=COLORS["text_muted"]).pack(anchor="w", padx=12, pady=(0, 6))
+        
+        tools_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        tools_frame.pack(fill="x", padx=8)
+        
+        tool_btn_style = {"font": FONTS["body"], "height": 32, "anchor": "w", "fg_color": "transparent", "hover_color": COLORS["bg_hover"], "text_color": COLORS["text_primary"]}
+        
+        self.research_btn = ctk.CTkButton(tools_frame, text="🔍 Investigar", command=self._open_research, **tool_btn_style)
+        self.research_btn.pack(fill="x", pady=2)
+        
+        self.settings_btn = ctk.CTkButton(tools_frame, text="⚙️ Configuración", command=self._open_settings, **tool_btn_style)
+        self.settings_btn.pack(fill="x", pady=2)
         
         # Status at bottom
         status_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -1094,6 +1307,14 @@ class ContentForgeApp(ctk.CTk):
         self.gen_script_btn.configure(text="📜 Script", state="normal")
         self.media_status.configure(text=f"❌ {error}", text_color=COLORS["accent_error"])
         self._error_progress(f"❌ {error}")
+    
+    def _open_settings(self):
+        """Open settings window for link management."""
+        SettingsWindow(self)
+    
+    def _open_research(self):
+        """Open research window for web search and retention comments."""
+        ResearchWindow(self)
     
     def _check_api_status(self):
         missing = validate_config()
