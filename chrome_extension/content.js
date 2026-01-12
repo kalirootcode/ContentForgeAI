@@ -57,7 +57,7 @@ function extractSmartContent(options) {
 }
 
 /**
- * TikTok Extraction
+ * TikTok Extraction - Enhanced with multiple fallback selectors
  */
 function extractTikTok(options) {
     const result = {
@@ -71,71 +71,149 @@ function extractTikTok(options) {
         itemCount: 0
     };
 
-    // Author name
-    const authorEl = document.querySelector('[data-e2e="browse-username"]') ||
-        document.querySelector('[class*="AuthorTitle"]') ||
-        document.querySelector('h3[data-e2e="user-title"]');
-    if (authorEl) {
-        result.author = authorEl.innerText.trim();
-        result.itemCount++;
+    // Try to get author from multiple sources
+    const authorSelectors = [
+        '[data-e2e="browse-username"]',
+        '[data-e2e="user-title"]',
+        'h3[data-e2e="user-title"]',
+        'a[href*="/@"] span',
+        '[class*="SpanAuthorNickname"]',
+        '[class*="DivAuthorContainer"] span',
+        'span[data-e2e="browse-username"]'
+    ];
+
+    for (const sel of authorSelectors) {
+        const el = document.querySelector(sel);
+        if (el && el.innerText && el.innerText.length > 1) {
+            result.author = el.innerText.trim();
+            result.itemCount++;
+            break;
+        }
     }
 
-    // Video description
-    const descEl = document.querySelector('[data-e2e="browse-video-desc"]') ||
-        document.querySelector('[class*="ContentContainer"]') ||
-        document.querySelector('[data-e2e="video-desc"]');
-    if (descEl) {
-        result.description = descEl.innerText.trim();
-        result.title = result.description.split('\n')[0].substring(0, 100);
-        result.itemCount++;
+    // Video description - try multiple selectors
+    const descSelectors = [
+        '[data-e2e="browse-video-desc"]',
+        '[data-e2e="video-desc"]',
+        '[class*="DivBrowserModeContainer"] [class*="SpanText"]',
+        '[class*="DivDescriptionContainer"]',
+        'div[class*="VideoDetail"] span[class*="SpanText"]',
+        'h1[data-e2e="browse-video-desc"]',
+        'div[class*="ContentDesc"]',
+        // Fallback: look for any large text block near the video
+        'main span[dir="auto"]'
+    ];
+
+    for (const sel of descSelectors) {
+        const el = document.querySelector(sel);
+        if (el && el.innerText && el.innerText.length > 10 && !el.innerText.includes('Buscar')) {
+            result.description = el.innerText.trim();
+            result.title = result.description.split('\n')[0].substring(0, 100);
+            result.itemCount++;
+            break;
+        }
     }
 
-    // Hashtags
+    // If no description found, try to get from meta tags
+    if (!result.description) {
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc && metaDesc.content) {
+            result.description = metaDesc.content;
+            result.title = result.description.substring(0, 100);
+            result.itemCount++;
+        }
+    }
+
+    // If still no description, try document title
+    if (!result.description && document.title) {
+        const titleMatch = document.title.match(/(.+?) \| TikTok/);
+        if (titleMatch) {
+            result.description = titleMatch[1];
+            result.title = titleMatch[1];
+            result.itemCount++;
+        }
+    }
+
+    // Hashtags - multiple methods
     if (options.includeHashtags) {
-        const hashtagEls = document.querySelectorAll('[data-e2e="browse-video-desc"] a[href*="/tag/"]') ||
-            document.querySelectorAll('a[href*="/tag/"]');
-        result.hashtags = Array.from(hashtagEls).map(el => el.innerText.trim()).filter(h => h.startsWith('#'));
+        // Method 1: Links to /tag/
+        const hashtagLinks = document.querySelectorAll('a[href*="/tag/"]');
+        if (hashtagLinks.length > 0) {
+            result.hashtags = Array.from(hashtagLinks)
+                .map(el => el.innerText.trim())
+                .filter(h => h.startsWith('#') || h.length > 0)
+                .map(h => h.startsWith('#') ? h : '#' + h);
+        }
+
+        // Method 2: Extract from description
+        if (result.hashtags.length === 0 && result.description) {
+            const hashMatches = result.description.match(/#[\w\u00C0-\u024F]+/g);
+            if (hashMatches) {
+                result.hashtags = hashMatches;
+            }
+        }
+
+        // Method 3: Look for hashtag elements
+        if (result.hashtags.length === 0) {
+            const hashEls = document.querySelectorAll('[class*="HashTag"], [class*="hashtag"]');
+            result.hashtags = Array.from(hashEls).map(el => el.innerText.trim()).filter(h => h);
+        }
+
         if (result.hashtags.length > 0) result.itemCount += result.hashtags.length;
     }
 
-    // Stats
+    // Stats - enhanced selectors
     if (options.includeStats) {
-        // Likes
-        const likesEl = document.querySelector('[data-e2e="like-count"]') ||
-            document.querySelector('[data-e2e="browse-like-count"]');
-        if (likesEl) result.stats.likes = parseStatNumber(likesEl.innerText);
+        const statsSelectors = {
+            likes: ['[data-e2e="like-count"]', '[data-e2e="browse-like-count"]', 'strong[data-e2e="like-count"]'],
+            comments: ['[data-e2e="comment-count"]', '[data-e2e="browse-comment-count"]'],
+            shares: ['[data-e2e="share-count"]', '[data-e2e="undefined-count"]'],
+            views: ['[data-e2e="video-views"]', 'strong[data-e2e="video-views"]']
+        };
 
-        // Comments count
-        const commentsEl = document.querySelector('[data-e2e="comment-count"]') ||
-            document.querySelector('[data-e2e="browse-comment-count"]');
-        if (commentsEl) result.stats.comments = parseStatNumber(commentsEl.innerText);
-
-        // Shares
-        const sharesEl = document.querySelector('[data-e2e="share-count"]');
-        if (sharesEl) result.stats.shares = parseStatNumber(sharesEl.innerText);
-
-        // Views
-        const viewsEl = document.querySelector('[data-e2e="video-views"]') ||
-            document.querySelector('strong[data-e2e="video-views"]');
-        if (viewsEl) result.stats.views = parseStatNumber(viewsEl.innerText);
-
+        for (const [stat, selectors] of Object.entries(statsSelectors)) {
+            for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                if (el && el.innerText) {
+                    result.stats[stat] = parseStatNumber(el.innerText);
+                    break;
+                }
+            }
+        }
         result.itemCount++;
     }
 
     // Comments
     if (options.includeComments) {
-        const commentEls = document.querySelectorAll('[data-e2e="comment-item"]') ||
-            document.querySelectorAll('[class*="CommentItem"]');
-        result.comments = Array.from(commentEls).slice(0, 20).map(el => {
-            const userEl = el.querySelector('[data-e2e="comment-username"]') || el.querySelector('a[href*="/@"]');
-            const textEl = el.querySelector('[data-e2e="comment-text"]') || el.querySelector('p');
-            return {
-                user: userEl?.innerText.trim() || 'Usuario',
-                text: textEl?.innerText.trim() || ''
-            };
-        }).filter(c => c.text);
-        result.itemCount += result.comments.length;
+        const commentSelectors = [
+            '[data-e2e="comment-item"]',
+            '[class*="DivCommentItemContainer"]',
+            '[class*="CommentItem"]'
+        ];
+
+        for (const sel of commentSelectors) {
+            const commentEls = document.querySelectorAll(sel);
+            if (commentEls.length > 0) {
+                result.comments = Array.from(commentEls).slice(0, 20).map(el => {
+                    const userEl = el.querySelector('[data-e2e="comment-username"]') ||
+                        el.querySelector('a[href*="/@"]') ||
+                        el.querySelector('span[class*="UserName"]');
+                    const textEl = el.querySelector('[data-e2e="comment-text"]') ||
+                        el.querySelector('p') ||
+                        el.querySelector('span[class*="SpanComment"]');
+                    return {
+                        user: userEl?.innerText.trim() || 'Usuario',
+                        text: textEl?.innerText.trim() || ''
+                    };
+                }).filter(c => c.text);
+                result.itemCount += result.comments.length;
+                break;
+            }
+        }
     }
+
+    // Log for debugging
+    console.log('TikTok Extraction Result:', result);
 
     return result;
 }
