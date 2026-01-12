@@ -729,6 +729,11 @@ class ResearchWindow(ctk.CTkToplevel):
         ctk.CTkButton(results_header, text="💬 Generar Comentario", width=150, height=28,
                       fg_color=COLORS["accent_cyan"], command=self._generate_comment).pack(side="right")
         
+        # Extension listener button
+        self.listen_btn = ctk.CTkButton(results_header, text="📡 Esperar Extensión", width=140, height=28,
+                      fg_color="#22c55e", command=self._toggle_extension_listener)
+        self.listen_btn.pack(side="right", padx=5)
+        
         # Results text
         self.results_text = ctk.CTkTextbox(right_panel, fg_color=COLORS["bg_input"], 
                                            font=("Segoe UI", 11), wrap="word")
@@ -736,7 +741,7 @@ class ResearchWindow(ctk.CTkToplevel):
         self.results_text.insert("0.0", "📌 Selecciona un link guardado o busca un tema\n\n" +
                                  "• Haz clic en un link de la izquierda para investigarlo\n" +
                                  "• O escribe un tema en la barra de búsqueda\n" +
-                                 "• La IA buscará posts populares con más interacción")
+                                 "• 📡 'Esperar Extensión' para recibir contenido desde Chrome")
         
         # Comment section
         ctk.CTkLabel(right_panel, text="✨ Comentario de Retención", font=FONTS["heading"],
@@ -753,7 +758,93 @@ class ResearchWindow(ctk.CTkToplevel):
         ctk.CTkButton(btn_frame, text="📋 Copiar", fg_color=COLORS["accent_primary"],
                       command=self._copy_comment).pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="Cerrar", fg_color=COLORS["bg_hover"], 
-                      command=self.destroy).pack(side="left", padx=5)
+                      command=self._on_close).pack(side="left", padx=5)
+        
+        # Extension listener state
+        self.listening = False
+        self.last_content_id = 0
+    
+    def _on_close(self):
+        """Handle window close, stop listener."""
+        self.listening = False
+        self.destroy()
+    
+    def _toggle_extension_listener(self):
+        """Toggle extension content listener."""
+        if self.listening:
+            self.listening = False
+            self.listen_btn.configure(text="📡 Esperar Extensión", fg_color="#22c55e")
+            self.results_text.delete("0.0", "end")
+            self.results_text.insert("0.0", "⏹️ Escucha detenida.\n\nHaz clic en '📡 Esperar Extensión' para reanudar.")
+        else:
+            self.listening = True
+            self.listen_btn.configure(text="⏹️ Detener", fg_color="#ef4444")
+            self.results_text.delete("0.0", "end")
+            self.results_text.insert("0.0", "📡 ESCUCHANDO EXTENSIÓN...\n\n" +
+                                     "╔════════════════════════════════════════════════════════╗\n" +
+                                     "║   Esperando contenido desde Chrome Extension...        ║\n" +
+                                     "║                                                        ║\n" +
+                                     "║   1. Navega a cualquier página web                     ║\n" +
+                                     "║   2. Haz clic en la extensión ContentForge             ║\n" +
+                                     "║   3. Presiona 'Extraer' → 'Enviar a ContentForge'      ║\n" +
+                                     "╚════════════════════════════════════════════════════════╝\n")
+            self._poll_extension()
+    
+    def _poll_extension(self):
+        """Poll API server for new content from extension."""
+        if not self.listening:
+            return
+        
+        def check_api():
+            try:
+                import urllib.request
+                import json
+                
+                req = urllib.request.Request("http://localhost:5678/content/latest")
+                with urllib.request.urlopen(req, timeout=2) as response:
+                    data = json.loads(response.read().decode())
+                    content = data.get("content")
+                    
+                    if content and content.get("id", 0) > self.last_content_id:
+                        self.last_content_id = content["id"]
+                        self.after(0, lambda: self._display_extension_content(content))
+                        return
+            except Exception as e:
+                pass  # API not available or no new content
+            
+            # Continue polling if still listening
+            if self.listening:
+                self.after(2000, self._poll_extension)
+        
+        threading.Thread(target=check_api, daemon=True).start()
+    
+    def _display_extension_content(self, content: dict):
+        """Display content received from Chrome extension."""
+        self.results_text.delete("0.0", "end")
+        
+        title = content.get("title", "Sin título")
+        url = content.get("url", "")
+        text = content.get("text", "")[:2000]
+        meta = content.get("meta", {})
+        
+        display = "╔" + "═" * 58 + "╗\n"
+        display += f"║  📥 CONTENIDO RECIBIDO DE CHROME                         ║\n"
+        display += "╠" + "═" * 58 + "╣\n"
+        display += f"║  🏷️  {title[:50]:<50}  ║\n"
+        display += "╚" + "═" * 58 + "╝\n\n"
+        
+        display += f"🔗 URL: {url}\n"
+        display += "─" * 60 + "\n\n"
+        display += "📄 CONTENIDO EXTRAÍDO:\n\n"
+        display += text + "\n\n"
+        display += "─" * 60 + "\n"
+        display += "✅ ¡Listo para generar comentario de retención!\n"
+        
+        self.results_text.insert("0.0", display)
+        
+        # Stop listening after receiving
+        self.listening = False
+        self.listen_btn.configure(text="📡 Esperar Extensión", fg_color="#22c55e")
     
     def _load_configured_links(self):
         """Load and display configured links from settings."""
