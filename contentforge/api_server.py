@@ -184,6 +184,8 @@ Responde en español."""
                 image_path = processor.download_image(url)
                 if image_path:
                     result = processor.analyze_image(image_path, context)
+                    # Store for main app polling
+                    _store_analysis_result(url, result.get("analysis", ""), "image")
                     return jsonify(result)
             
             # For page URLs (Facebook photo pages, etc), generate analysis from context
@@ -208,6 +210,10 @@ Genera:
 Responde en español, de forma profesional y útil."""
             
             analysis = gemini.generate(prompt)
+            
+            # Store for main app polling
+            _store_analysis_result(url, analysis, "image")
+            
             return jsonify({
                 "success": True, 
                 "analysis": analysis,
@@ -219,6 +225,22 @@ Responde en español, de forma profesional y útil."""
     except Exception as e:
         logger.error(f"Image analysis error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _store_analysis_result(url: str, analysis: str, media_type: str):
+    """Store analysis result for main app polling."""
+    global EXTRACTED_CONTENT
+    content = {
+        "id": len(EXTRACTED_CONTENT) + 1,
+        "url": url,
+        "title": f"📊 Análisis de {media_type.upper()}",
+        "text": analysis,
+        "meta": {"type": "analysis", "media_type": media_type},
+        "received_at": datetime.now().isoformat()
+    }
+    EXTRACTED_CONTENT.append(content)
+    save_extracted_content()
+    logger.info(f"Analysis stored for: {url}")
 
 
 @app.route('/analyze/generate', methods=['POST'])

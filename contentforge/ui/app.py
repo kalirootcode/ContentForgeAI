@@ -824,21 +824,41 @@ class ResearchWindow(ctk.CTkToplevel):
         
         title = content.get("title", "Sin título")
         url = content.get("url", "")
-        text = content.get("text", "")[:2000]
+        text = content.get("text", "")[:3000]
         meta = content.get("meta", {})
         
-        display = "╔" + "═" * 58 + "╗\n"
-        display += f"║  📥 CONTENIDO RECIBIDO DE CHROME                         ║\n"
-        display += "╠" + "═" * 58 + "╣\n"
-        display += f"║  🏷️  {title[:50]:<50}  ║\n"
-        display += "╚" + "═" * 58 + "╝\n\n"
+        # Check if this is an analysis result
+        is_analysis = meta.get("type") == "analysis"
+        media_type = meta.get("media_type", "")
         
-        display += f"🔗 URL: {url}\n"
-        display += "─" * 60 + "\n\n"
-        display += "📄 CONTENIDO EXTRAÍDO:\n\n"
-        display += text + "\n\n"
-        display += "─" * 60 + "\n"
-        display += "✅ ¡Listo para generar comentario de retención!\n"
+        if is_analysis:
+            # Special formatting for analysis results
+            display = "╔" + "═" * 58 + "╗\n"
+            display += f"║  📊 ANÁLISIS DE MEDIA - {media_type.upper():^31} ║\n"
+            display += "╠" + "═" * 58 + "╣\n"
+            display += f"║  🤖 Generado por IA                                      ║\n"
+            display += "╚" + "═" * 58 + "╝\n\n"
+            
+            display += f"🔗 URL: {url}\n"
+            display += "─" * 60 + "\n\n"
+            display += text + "\n\n"
+            display += "─" * 60 + "\n"
+            display += "🎯 ¡Análisis listo! Usa los comentarios sugeridos arriba.\n"
+            display += "💡 Tip: Copia directamente o genera más opciones.\n"
+        else:
+            # Standard content formatting
+            display = "╔" + "═" * 58 + "╗\n"
+            display += f"║  📥 CONTENIDO RECIBIDO DE CHROME                         ║\n"
+            display += "╠" + "═" * 58 + "╣\n"
+            display += f"║  🏷️  {title[:50]:<50}  ║\n"
+            display += "╚" + "═" * 58 + "╝\n\n"
+            
+            display += f"🔗 URL: {url}\n"
+            display += "─" * 60 + "\n\n"
+            display += "📄 CONTENIDO EXTRAÍDO:\n\n"
+            display += text + "\n\n"
+            display += "─" * 60 + "\n"
+            display += "✅ ¡Listo para generar comentario de retención!\n"
         
         self.results_text.insert("0.0", display)
         
