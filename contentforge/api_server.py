@@ -149,26 +149,23 @@ def analyze_video():
 
 @app.route('/analyze/image', methods=['POST'])
 def analyze_image():
-    """Analyze image from URL or base64 data."""
+    """Analyze image from URL, base64 data, or generate from context."""
     try:
-        from contentforge.media_processor import get_media_processor
+        from contentforge.gemini_handler import get_gemini_handler
         
         data = request.get_json()
         url = data.get("url", "")
         base64_data = data.get("base64", "")
         context = data.get("context", "")
         
-        processor = get_media_processor()
+        gemini = get_gemini_handler()
         
         if base64_data:
             # Direct base64 analysis
-            from contentforge.gemini_handler import get_gemini_handler
-            gemini = get_gemini_handler()
-            
             prompt = f"""Analiza esta imagen y proporciona:
 1. Descripción detallada
 2. Temas principales
-3. 3 ideas de comentarios que generen curiosidad
+3. 3 ideas de comentarios que generen curiosidad y engagement
 4. 5 hashtags relevantes
 
 Contexto: {context if context else 'Imagen de redes sociales'}
@@ -178,19 +175,50 @@ Responde en español."""
             return jsonify({"success": True, "analysis": analysis})
             
         elif url:
-            # Download and analyze
-            image_path = processor.download_image(url)
-            if image_path:
-                result = processor.analyze_image(image_path, context)
-                return jsonify(result)
-            else:
-                return jsonify({"error": "No se pudo descargar la imagen"}), 400
+            # Check if URL is a direct image or a page
+            is_direct_image = any(ext in url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp'])
+            
+            if is_direct_image:
+                from contentforge.media_processor import get_media_processor
+                processor = get_media_processor()
+                image_path = processor.download_image(url)
+                if image_path:
+                    result = processor.analyze_image(image_path, context)
+                    return jsonify(result)
+            
+            # For page URLs (Facebook photo pages, etc), generate analysis from context
+            prompt = f"""Eres un experto en marketing de redes sociales. Basándote en esta URL y contexto:
+
+URL: {url}
+Contexto: {context if context else 'Publicación de redes sociales con imagen'}
+
+Genera:
+
+1. **3 Comentarios de Engagement:**
+   - Comentarios que generen curiosidad técnica
+   - Que inviten a la conversación
+   - Máximo 280 caracteres cada uno
+
+2. **Ideas de Contenido:**
+   - 3 ideas para crear contenido relacionado
+
+3. **Hashtags Sugeridos:**
+   - 10 hashtags relevantes para mayor alcance
+
+Responde en español, de forma profesional y útil."""
+            
+            analysis = gemini.generate(prompt)
+            return jsonify({
+                "success": True, 
+                "analysis": analysis,
+                "note": "Análisis basado en contexto (imagen no descargable directamente)"
+            })
         else:
             return jsonify({"error": "URL or base64 data required"}), 400
             
     except Exception as e:
         logger.error(f"Image analysis error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/analyze/generate', methods=['POST'])

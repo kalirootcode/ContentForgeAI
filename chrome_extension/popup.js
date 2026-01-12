@@ -236,31 +236,66 @@ if (analyzeMediaBtn) {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             const url = tab.url;
 
-            // Send to API for analysis
-            const response = await fetch(`${API_URL}/analyze/video`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            // Detect if it's an image or video based on URL
+            const isImage = url.includes('/photo') ||
+                url.includes('/image') ||
+                url.includes('.jpg') ||
+                url.includes('.png') ||
+                url.includes('.gif') ||
+                url.includes('fbid=') ||
+                url.includes('/photos/');
+
+            const isVideo = url.includes('/video') ||
+                url.includes('/watch') ||
+                url.includes('tiktok.com') ||
+                url.includes('youtube.com') ||
+                url.includes('youtu.be') ||
+                url.includes('/reel');
+
+            let endpoint, bodyData;
+
+            if (isImage) {
+                // For images, try to extract image URL from page or use page URL
+                endpoint = `${API_URL}/analyze/image`;
+                bodyData = {
+                    url: url,
+                    context: extractedContent?.description || 'Imagen de redes sociales'
+                };
+                showResult('🖼️ Analizando imagen...', false);
+            } else if (isVideo) {
+                endpoint = `${API_URL}/analyze/video`;
+                bodyData = {
                     url: url,
                     context: extractedContent?.description || ''
-                })
+                };
+                showResult('🎬 Descargando video...', false);
+            } else {
+                // Default: try video first (for TikTok, etc)
+                endpoint = `${API_URL}/analyze/video`;
+                bodyData = {
+                    url: url,
+                    context: extractedContent?.description || ''
+                };
+            }
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyData)
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    showResult('🎬 ¡Análisis completado!', false);
-                    elements.extractedInfo.textContent = '📊 Media analizada';
+            const data = await response.json();
 
-                    // Update preview with analysis
-                    if (data.analysis) {
-                        elements.previewText.textContent = data.analysis.substring(0, 300) + '...';
-                    }
-                } else {
-                    throw new Error(data.error || 'Error de análisis');
+            if (response.ok && data.success) {
+                showResult('✅ ¡Análisis completado!', false);
+                elements.extractedInfo.textContent = '📊 Media analizada';
+
+                // Update preview with analysis
+                if (data.analysis) {
+                    elements.previewText.textContent = data.analysis.substring(0, 300) + '...';
                 }
             } else {
-                throw new Error('Error de servidor');
+                throw new Error(data.error || 'Error de análisis');
             }
         } catch (error) {
             console.error('Analysis error:', error);
