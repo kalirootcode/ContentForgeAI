@@ -12,7 +12,7 @@
     <div class="container">
         <header>
             <div class="logo">🚀 ContentForge AI</div>
-            <div class="subtitle">Extractor de Contenido</div>
+            <div class="subtitle">Extractor Profesional</div>
         </header>
 
         <div class="status-bar" id="statusBar">
@@ -20,10 +20,48 @@
             <span id="statusText">Verificando conexión...</span>
         </div>
 
+        <!-- Platform Detection -->
+        <div class="platform-info" id="platformInfo">
+            <span id="platformIcon">🌐</span>
+            <span id="platformName">Detectando plataforma...</span>
+        </div>
+
+        <!-- Extraction Options -->
+        <div class="options-panel">
+            <div class="options-title">⚙️ Opciones de Extracción</div>
+            <div class="options-grid">
+                <label class="option-item">
+                    <input type="checkbox" id="optTitle" checked>
+                    <span>📝 Título y Descripción</span>
+                </label>
+                <label class="option-item">
+                    <input type="checkbox" id="optHashtags" checked>
+                    <span>#️⃣ Hashtags</span>
+                </label>
+                <label class="option-item">
+                    <input type="checkbox" id="optStats" checked>
+                    <span>📊 Estadísticas</span>
+                </label>
+                <label class="option-item">
+                    <input type="checkbox" id="optComments">
+                    <span>💬 Comentarios</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Content Preview -->
         <div class="content-preview" id="contentPreview">
-            <div class="preview-title" id="previewTitle">Título de la página</div>
-            <div class="preview-url" id="previewUrl">URL actual</div>
-            <div class="preview-text" id="previewText">El contenido extraído aparecerá aquí...</div>
+            <div class="preview-header">
+                <div class="preview-title" id="previewTitle">Título del contenido</div>
+                <div class="preview-url" id="previewUrl">URL actual</div>
+            </div>
+            <div class="preview-stats" id="previewStats" style="display: none;">
+                <span class="stat">❤️ <span id="statLikes">0</span></span>
+                <span class="stat">💬 <span id="statComments">0</span></span>
+                <span class="stat">🔄 <span id="statShares">0</span></span>
+                <span class="stat">👁️ <span id="statViews">0</span></span>
+            </div>
+            <div class="preview-text" id="previewText">Haz clic en "Extraer" para obtener el contenido...</div>
         </div>
 
         <div class="actions">
@@ -41,7 +79,7 @@
         </div>
 
         <footer>
-            <a href="#" id="openApp">Abrir ContentForge AI</a>
+            <span id="extractedInfo">Sin datos extraídos</span>
         </footer>
     </div>
 
