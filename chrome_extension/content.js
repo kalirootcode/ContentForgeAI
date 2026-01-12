@@ -235,15 +235,20 @@ function extractFacebook(options) {
 
     // Post content - try multiple selectors
     const postSelectors = [
-        '[data-ad-preview="message"]',
-        '[data-testid="post_message"]',
-        'div[dir="auto"][data-ad-comet-preview="message"]',
-        'div.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs span[dir="auto"]',
-        'span.x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.xudqn12.x3x7a5m.x6prxxf.xvq8zen.xo1l8bm.xzsf02u',
-        '[class*="userContent"]',
+        // Newer Facebook selectors
+        'div[data-ad-comet-preview="message"]',
         'div[data-ad-preview="message"]',
-        // Generic: any text block in a post
-        'div[role="article"] div[dir="auto"]'
+        // Text content selectors
+        'div[dir="auto"][style*="text-align"]',
+        'span[dir="auto"][class*="x193iq5w"]',
+        // Article content
+        'div[role="article"] div[dir="auto"]',
+        'div[role="main"] div[dir="auto"]',
+        // Post body
+        '[data-testid="post_message"]',
+        // Any significant text block
+        'div.x1iorvi4 div[dir="auto"]',
+        'div.xdj266r div[dir="auto"]'
     ];
 
     for (const sel of postSelectors) {
@@ -251,7 +256,13 @@ function extractFacebook(options) {
             const elements = document.querySelectorAll(sel);
             for (const el of elements) {
                 const text = el.innerText?.trim();
-                if (text && text.length > 20 && !text.includes('Me gusta') && !text.includes('Comentar')) {
+                // Skip navigation and button text
+                if (text && text.length > 15 &&
+                    !text.includes('Me gusta') &&
+                    !text.includes('Comentar') &&
+                    !text.includes('Compartir') &&
+                    !text.includes('Escribir') &&
+                    !text.includes('Publicar')) {
                     result.description = text;
                     result.title = text.substring(0, 100);
                     result.itemCount++;
@@ -262,12 +273,34 @@ function extractFacebook(options) {
         } catch (e) { }
     }
 
-    // If no description, try meta
+    // Fallback 1: Try OG meta tags (most reliable for Facebook)
+    if (!result.description) {
+        const ogDesc = document.querySelector('meta[property="og:description"]');
+        const ogTitle = document.querySelector('meta[property="og:title"]');
+        if (ogDesc?.content) {
+            result.description = ogDesc.content;
+            result.itemCount++;
+        }
+        if (ogTitle?.content) {
+            result.title = ogTitle.content;
+        }
+    }
+
+    // Fallback 2: Standard meta description
     if (!result.description) {
         const metaDesc = document.querySelector('meta[name="description"]');
         if (metaDesc?.content) {
             result.description = metaDesc.content;
             result.title = result.description.substring(0, 100);
+            result.itemCount++;
+        }
+    }
+
+    // Fallback 3: Page title
+    if (!result.title && document.title) {
+        result.title = document.title.replace(' | Facebook', '').trim();
+        if (!result.description) {
+            result.description = result.title;
             result.itemCount++;
         }
     }
