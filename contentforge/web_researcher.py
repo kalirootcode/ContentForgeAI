@@ -6,7 +6,7 @@ Uses DuckDuckGo for web searching and content analysis
 import logging
 import re
 from typing import Dict, List, Optional
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 logger = logging.getLogger(__name__)
 
