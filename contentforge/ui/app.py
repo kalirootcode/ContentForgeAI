@@ -665,59 +665,158 @@ class ResearchWindow(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("🔍 Investigar y Generar Comentarios")
-        self.geometry("800x600")
+        self.geometry("950x650")
         self.configure(fg_color=COLORS["bg_dark"])
         self.transient(parent)
         
         self.researcher = get_web_researcher()
         self.generator = get_retention_generator()
+        self.settings = get_settings_manager()
         self._create_ui()
     
     def _create_ui(self):
-        # Header
-        ctk.CTkLabel(self, text="🔍 Investigación Web", font=FONTS["title"], text_color=COLORS["text_primary"]).pack(pady=(15, 5))
+        # Main container with 2 columns
+        main_container = ctk.CTkFrame(self, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=10, pady=10)
+        main_container.grid_columnconfigure(1, weight=1)
+        main_container.grid_rowconfigure(0, weight=1)
         
-        # Search section
-        search_frame = ctk.CTkFrame(self, fg_color=COLORS["bg_card"], corner_radius=8)
-        search_frame.pack(fill="x", padx=15, pady=10)
+        # LEFT PANEL - Configured Links
+        left_panel = ctk.CTkFrame(main_container, width=280, fg_color=COLORS["bg_card"], corner_radius=8)
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        left_panel.grid_propagate(False)
+        
+        ctk.CTkLabel(left_panel, text="📋 Links Guardados", font=FONTS["heading"], text_color=COLORS["accent_cyan"]).pack(pady=(15, 10))
+        
+        self.links_scroll = ctk.CTkScrollableFrame(left_panel, fg_color="transparent")
+        self.links_scroll.pack(fill="both", expand=True, padx=8, pady=(0, 10))
+        
+        self._load_configured_links()
+        
+        ctk.CTkButton(left_panel, text="⚙️ Gestionar Links", height=30, fg_color=COLORS["bg_input"],
+                      command=lambda: SettingsWindow(self)).pack(pady=10, padx=10, fill="x")
+        
+        # RIGHT PANEL - Search and Results
+        right_panel = ctk.CTkFrame(main_container, fg_color="transparent")
+        right_panel.grid(row=0, column=1, sticky="nsew")
+        right_panel.grid_rowconfigure(2, weight=1)
+        right_panel.grid_columnconfigure(0, weight=1)
+        
+        # Search bar
+        search_frame = ctk.CTkFrame(right_panel, fg_color=COLORS["bg_card"], corner_radius=8)
+        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         
         search_row = ctk.CTkFrame(search_frame, fg_color="transparent")
         search_row.pack(fill="x", padx=10, pady=10)
         
-        self.query_entry = ctk.CTkEntry(search_row, placeholder_text="Buscar tema o pegar contenido de post...", 
-                                        width=400, height=35, fg_color=COLORS["bg_input"])
+        self.query_entry = ctk.CTkEntry(search_row, placeholder_text="Buscar tema o pegar URL/contenido...", 
+                                        height=35, fg_color=COLORS["bg_input"])
         self.query_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         self.platform_var = ctk.StringVar(value="facebook")
         ctk.CTkOptionMenu(search_row, values=["facebook", "twitter", "linkedin", "general"], 
-                          variable=self.platform_var, width=120, fg_color=COLORS["bg_input"]).pack(side="left", padx=5)
+                          variable=self.platform_var, width=110, fg_color=COLORS["bg_input"]).pack(side="left", padx=5)
         
-        ctk.CTkButton(search_row, text="🔍 Buscar", width=100, fg_color=COLORS["accent_primary"],
+        ctk.CTkButton(search_row, text="🔍 Buscar", width=90, fg_color=COLORS["accent_primary"],
                       command=self._do_search).pack(side="left", padx=5)
         
-        # Results area
-        results_label = ctk.CTkFrame(self, fg_color="transparent")
-        results_label.pack(fill="x", padx=15)
-        ctk.CTkLabel(results_label, text="📊 Resultados", font=FONTS["heading"], text_color=COLORS["text_primary"]).pack(side="left")
-        ctk.CTkButton(results_label, text="💬 Generar Comentario", width=160, fg_color=COLORS["accent_cyan"],
-                      command=self._generate_comment).pack(side="right")
+        # Results header with actions
+        results_header = ctk.CTkFrame(right_panel, fg_color="transparent")
+        results_header.grid(row=1, column=0, sticky="ew")
         
-        self.results_text = ctk.CTkTextbox(self, fg_color=COLORS["bg_input"], font=("Segoe UI", 11), wrap="word")
-        self.results_text.pack(fill="both", expand=True, padx=15, pady=10)
-        self.results_text.insert("0.0", "Los resultados de búsqueda aparecerán aquí...\n\n1. Escribe un tema para buscar\n2. O pega el contenido de un post para analizarlo\n3. Presiona 'Generar Comentario' para crear un comentario de retención")
+        ctk.CTkLabel(results_header, text="📊 Posts Encontrados", font=FONTS["heading"], 
+                    text_color=COLORS["text_primary"]).pack(side="left")
+        ctk.CTkButton(results_header, text="💬 Generar Comentario", width=150, height=28,
+                      fg_color=COLORS["accent_cyan"], command=self._generate_comment).pack(side="right")
         
-        # Generated comment area
-        ctk.CTkLabel(self, text="✨ Comentario Generado", font=FONTS["heading"], text_color=COLORS["text_primary"]).pack(anchor="w", padx=15)
+        # Results text
+        self.results_text = ctk.CTkTextbox(right_panel, fg_color=COLORS["bg_input"], 
+                                           font=("Segoe UI", 11), wrap="word")
+        self.results_text.grid(row=2, column=0, sticky="nsew", pady=10)
+        self.results_text.insert("0.0", "📌 Selecciona un link guardado o busca un tema\n\n" +
+                                 "• Haz clic en un link de la izquierda para investigarlo\n" +
+                                 "• O escribe un tema en la barra de búsqueda\n" +
+                                 "• La IA buscará posts populares con más interacción")
         
-        self.comment_text = ctk.CTkTextbox(self, fg_color="#0f1218", font=("Segoe UI", 13), height=100, wrap="word")
-        self.comment_text.pack(fill="x", padx=15, pady=(5, 10))
+        # Comment section
+        ctk.CTkLabel(right_panel, text="✨ Comentario de Retención", font=FONTS["heading"],
+                    text_color=COLORS["text_primary"]).grid(row=3, column=0, sticky="w")
+        
+        self.comment_text = ctk.CTkTextbox(right_panel, fg_color="#0f1218", font=("Segoe UI", 13), 
+                                            height=80, wrap="word")
+        self.comment_text.grid(row=4, column=0, sticky="ew", pady=(5, 10))
         
         # Bottom buttons
-        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.pack(pady=10)
-        ctk.CTkButton(btn_frame, text="📋 Copiar Comentario", fg_color=COLORS["accent_primary"],
+        btn_frame = ctk.CTkFrame(right_panel, fg_color="transparent")
+        btn_frame.grid(row=5, column=0)
+        
+        ctk.CTkButton(btn_frame, text="📋 Copiar", fg_color=COLORS["accent_primary"],
                       command=self._copy_comment).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="Cerrar", fg_color=COLORS["bg_hover"], command=self.destroy).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="Cerrar", fg_color=COLORS["bg_hover"], 
+                      command=self.destroy).pack(side="left", padx=5)
+    
+    def _load_configured_links(self):
+        """Load and display configured links from settings."""
+        for widget in self.links_scroll.winfo_children():
+            widget.destroy()
+        
+        all_links = self.settings.get_all_links()
+        section_icons = {"facebook_groups": "📘", "facebook_pages": "📄", 
+                         "twitter_accounts": "🐦", "linkedin_pages": "💼", "other_links": "🔗"}
+        
+        has_links = False
+        for section, links in all_links.items():
+            for link in links:
+                has_links = True
+                icon = section_icons.get(section, "🔗")
+                
+                link_btn = ctk.CTkButton(
+                    self.links_scroll, text=f"{icon} {link['name']}", 
+                    anchor="w", fg_color=COLORS["bg_input"], hover_color=COLORS["bg_hover"],
+                    height=32, font=FONTS["small"],
+                    command=lambda u=link['url'], n=link['name']: self._research_link(u, n)
+                )
+                link_btn.pack(fill="x", pady=2)
+        
+        if not has_links:
+            ctk.CTkLabel(self.links_scroll, text="No hay links configurados\n\nUsa ⚙️ Gestionar Links\npara agregar grupos/páginas",
+                        font=FONTS["small"], text_color=COLORS["text_muted"]).pack(pady=20)
+    
+    def _research_link(self, url: str, name: str):
+        """Research a configured link for popular posts."""
+        self.results_text.delete("0.0", "end")
+        self.results_text.insert("0.0", f"🔍 Investigando: {name}...\n\nBuscando posts populares...")
+        
+        def research():
+            # Extract domain/keywords from URL
+            search_terms = f"site:{url.replace('https://', '').replace('http://', '').split('/')[0]} popular posts comments"
+            
+            # Also search for the name/topic
+            results = self.researcher.search(f"{name} posts populares comentarios", max_results=5)
+            results2 = self.researcher.find_engagement_patterns(name)
+            
+            text = f"🎯 Investigación: {name}\n"
+            text += f"🔗 {url}\n"
+            text += "─" * 50 + "\n\n"
+            text += "📈 POSTS CON MÁS ENGAGEMENT:\n\n"
+            
+            all_results = results + results2.get('high_engagement_content', [])
+            
+            for i, r in enumerate(all_results[:8], 1):
+                title = r.get('title', 'Sin título')
+                body = r.get('body', '')[:150]
+                link = r.get('href', '')
+                text += f"{i}. {title}\n"
+                text += f"   {body}...\n"
+                text += f"   🔗 {link}\n\n"
+            
+            if not all_results:
+                text += "No se encontraron posts. Intenta con otro link o busca manualmente.\n"
+            
+            self.after(0, lambda: self.results_text.delete("0.0", "end"))
+            self.after(0, lambda: self.results_text.insert("0.0", text))
+        
+        threading.Thread(target=research).start()
     
     def _do_search(self):
         query = self.query_entry.get().strip()
@@ -725,37 +824,47 @@ class ResearchWindow(ctk.CTkToplevel):
             return
         
         self.results_text.delete("0.0", "end")
-        self.results_text.insert("0.0", "🔍 Buscando...")
+        self.results_text.insert("0.0", "🔍 Buscando posts populares...")
         
         def search():
             platform = self.platform_var.get()
-            if platform == "general":
-                results = self.researcher.search(query, max_results=5)
-            else:
-                results = self.researcher.search_social(platform, query, max_results=5)
             
-            text = f"Resultados para: {query}\n{'─' * 50}\n\n"
-            for i, r in enumerate(results, 1):
+            # Search for posts with engagement
+            if platform == "general":
+                results = self.researcher.search(f"{query} popular viral", max_results=8)
+            else:
+                results = self.researcher.search_social(platform, f"{query} most comments popular", max_results=8)
+            
+            # Also get engagement patterns
+            engagement = self.researcher.find_engagement_patterns(query)
+            
+            text = f"🔍 Resultados para: {query}\n"
+            text += "─" * 50 + "\n\n"
+            text += "📈 POSTS CON MÁS INTERACCIÓN:\n\n"
+            
+            all_results = results + engagement.get('high_engagement_content', [])[:3]
+            
+            for i, r in enumerate(all_results[:10], 1):
                 text += f"{i}. {r.get('title', 'Sin título')}\n"
-                text += f"   {r.get('body', '')[:200]}...\n"
+                text += f"   {r.get('body', '')[:150]}...\n"
                 text += f"   🔗 {r.get('href', '')}\n\n"
             
             self.after(0, lambda: self.results_text.delete("0.0", "end"))
-            self.after(0, lambda: self.results_text.insert("0.0", text if results else "No se encontraron resultados."))
+            self.after(0, lambda: self.results_text.insert("0.0", text if all_results else "No se encontraron resultados."))
         
         threading.Thread(target=search).start()
     
     def _generate_comment(self):
         content = self.results_text.get("0.0", "end").strip()
-        if not content or "Buscando" in content:
+        if not content or "Buscando" in content or "Investigando" in content:
             return
         
         self.comment_text.delete("0.0", "end")
-        self.comment_text.insert("0.0", "⏳ Generando comentario...")
+        self.comment_text.insert("0.0", "⏳ Generando comentario de retención...")
         
         def generate():
             platform = self.platform_var.get()
-            comment = self.generator.generate_retention_comment(content, platform)
+            comment = self.generator.generate_retention_comment(content, platform, style="curious")
             self.after(0, lambda: self.comment_text.delete("0.0", "end"))
             self.after(0, lambda: self.comment_text.insert("0.0", comment if comment else "Error al generar"))
         
