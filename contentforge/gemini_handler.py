@@ -250,6 +250,75 @@ Responde SOLO con los hashtags, uno por línea.
         except Exception as e:
             logger.error(f"Error generating hashtags: {e}")
             return ["#error"]
+    
+    def generate(self, prompt: str, use_pro: bool = False) -> str:
+        """
+        Simple text generation with a custom prompt.
+        
+        Args:
+            prompt: The prompt to generate from
+            use_pro: Use Pro model
+            
+        Returns:
+            Generated text
+        """
+        if not self.is_configured():
+            return "❌ API no configurada"
+        
+        try:
+            model = self.model_pro if use_pro else self.model_fast
+            response = self.client.models.generate_content(
+                model=model,
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            logger.error(f"Error in generate: {e}")
+            return f"❌ Error: {str(e)}"
+    
+    def generate_with_image(self, prompt: str, image_base64: str, mime_type: str = "image/jpeg") -> str:
+        """
+        Generate content based on an image using Gemini Vision.
+        
+        Args:
+            prompt: Text prompt describing what to analyze
+            image_base64: Base64 encoded image data
+            mime_type: MIME type of the image
+            
+        Returns:
+            Generated analysis/content
+        """
+        if not self.is_configured():
+            return "❌ API no configurada"
+        
+        try:
+            # Create inline data for the image
+            image_part = types.Part.from_bytes(
+                data=__import__('base64').b64decode(image_base64),
+                mime_type=mime_type
+            )
+            
+            response = self.client.models.generate_content(
+                model=self.model_pro,  # Use Pro for vision
+                contents=[prompt, image_part]
+            )
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Error in generate_with_image: {e}")
+            return f"❌ Error: {str(e)}"
+
+
+# Singleton instance
+_handler_instance: Optional[GeminiHandler] = None
+
+
+def get_gemini_handler() -> GeminiHandler:
+    """Get singleton GeminiHandler instance."""
+    global _handler_instance
+    if _handler_instance is None:
+        _handler_instance = GeminiHandler()
+    return _handler_instance
 
 
 def test_connection() -> bool:

@@ -227,6 +227,16 @@ header {
     background: #374151;
 }
 
+.btn-analyze {
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+    color: white;
+    width: 100%;
+}
+
+.btn-analyze:hover {
+    background: linear-gradient(135deg, #8b5cf6 0%, #c084fc 100%);
+}
+
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;

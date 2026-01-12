@@ -224,3 +224,50 @@ function showResult(message, isError) {
         elements.result.style.display = 'none';
     }, 3000);
 }
+
+// Analyze Media button handler
+const analyzeMediaBtn = document.getElementById('analyzeMediaBtn');
+if (analyzeMediaBtn) {
+    analyzeMediaBtn.addEventListener('click', async () => {
+        analyzeMediaBtn.disabled = true;
+        analyzeMediaBtn.textContent = '⏳ Analizando...';
+
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const url = tab.url;
+
+            // Send to API for analysis
+            const response = await fetch(`${API_URL}/analyze/video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    url: url,
+                    context: extractedContent?.description || ''
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showResult('🎬 ¡Análisis completado!', false);
+                    elements.extractedInfo.textContent = '📊 Media analizada';
+
+                    // Update preview with analysis
+                    if (data.analysis) {
+                        elements.previewText.textContent = data.analysis.substring(0, 300) + '...';
+                    }
+                } else {
+                    throw new Error(data.error || 'Error de análisis');
+                }
+            } else {
+                throw new Error('Error de servidor');
+            }
+        } catch (error) {
+            console.error('Analysis error:', error);
+            showResult('❌ ' + error.message, true);
+        } finally {
+            analyzeMediaBtn.disabled = false;
+            analyzeMediaBtn.textContent = '🎬 Analizar Media (Video/Imagen)';
+        }
+    });
+}

@@ -114,11 +114,134 @@ def clear_content():
     return jsonify({"success": True, "message": "Contenido eliminado"})
 
 
+# ============ MEDIA ANALYSIS ENDPOINTS ============
+
+@app.route('/analyze/video', methods=['POST'])
+def analyze_video():
+    """Download and analyze video from URL."""
+    try:
+        from contentforge.media_processor import get_media_processor
+        
+        data = request.get_json()
+        url = data.get("url", "")
+        context = data.get("context", "")
+        
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+        
+        processor = get_media_processor()
+        result = processor.process_video_url(url, context)
+        
+        if result.get("success"):
+            return jsonify({
+                "success": True,
+                "analysis": result.get("analysis", ""),
+                "video_path": result.get("video_path"),
+                "audio_path": result.get("audio_path")
+            })
+        else:
+            return jsonify({"success": False, "error": result.get("error")}), 400
+            
+    except Exception as e:
+        logger.error(f"Video analysis error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/analyze/image', methods=['POST'])
+def analyze_image():
+    """Analyze image from URL or base64 data."""
+    try:
+        from contentforge.media_processor import get_media_processor
+        
+        data = request.get_json()
+        url = data.get("url", "")
+        base64_data = data.get("base64", "")
+        context = data.get("context", "")
+        
+        processor = get_media_processor()
+        
+        if base64_data:
+            # Direct base64 analysis
+            from contentforge.gemini_handler import get_gemini_handler
+            gemini = get_gemini_handler()
+            
+            prompt = f"""Analiza esta imagen y proporciona:
+1. Descripción detallada
+2. Temas principales
+3. 3 ideas de comentarios que generen curiosidad
+4. 5 hashtags relevantes
+
+Contexto: {context if context else 'Imagen de redes sociales'}
+Responde en español."""
+            
+            analysis = gemini.generate_with_image(prompt, base64_data)
+            return jsonify({"success": True, "analysis": analysis})
+            
+        elif url:
+            # Download and analyze
+            image_path = processor.download_image(url)
+            if image_path:
+                result = processor.analyze_image(image_path, context)
+                return jsonify(result)
+            else:
+                return jsonify({"error": "No se pudo descargar la imagen"}), 400
+        else:
+            return jsonify({"error": "URL or base64 data required"}), 400
+            
+    except Exception as e:
+        logger.error(f"Image analysis error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/analyze/generate', methods=['POST'])
+def generate_from_analysis():
+    """Generate content from previous analysis."""
+    try:
+        from contentforge.media_processor import get_media_processor
+        
+        data = request.get_json()
+        analysis = data.get("analysis", "")
+        content_type = data.get("type", "comment")  # comment, post, thread
+        
+        if not analysis:
+            return jsonify({"error": "Analysis text required"}), 400
+        
+        processor = get_media_processor()
+        content = processor.generate_content_from_analysis(analysis, content_type)
+        
+        return jsonify({
+            "success": True,
+            "content": content,
+            "type": content_type
+        })
+        
+    except Exception as e:
+        logger.error(f"Content generation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/analyze/status', methods=['GET'])
+def analyze_status():
+    """Check if media analysis dependencies are available."""
+    try:
+        from contentforge.media_processor import get_media_processor
+        processor = get_media_processor()
+        
+        return jsonify({
+            "yt_dlp": processor.has_ytdlp,
+            "ffmpeg": processor.has_ffmpeg,
+            "gemini": processor.gemini.is_configured()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 def run_api_server(port: int = 5678):
     """Start the API server."""
     load_extracted_content()
     print(f"🌐 ContentForge API Server iniciado en http://localhost:{port}")
     print("📥 Esperando contenido de la extensión Chrome...")
+    print("🎬 Endpoints de análisis de media disponibles")
     app.run(host='localhost', port=port, debug=False, threaded=True)
 
 
@@ -130,3 +253,4 @@ def get_extracted_content() -> list:
 
 if __name__ == '__main__':
     run_api_server()
+
