@@ -785,33 +785,47 @@ class ResearchWindow(ctk.CTkToplevel):
     def _research_link(self, url: str, name: str):
         """Research a configured link for popular posts."""
         self.results_text.delete("0.0", "end")
-        self.results_text.insert("0.0", f"🔍 Investigando: {name}...\n\nBuscando posts populares...")
+        self.results_text.insert("0.0", f"🔍 Investigando: {name}...\n\n⏳ Buscando contenido relacionado...")
         
         def research():
-            # Extract domain/keywords from URL
-            search_terms = f"site:{url.replace('https://', '').replace('http://', '').split('/')[0]} popular posts comments"
+            # Detect if it's a Facebook group
+            is_fb_group = "facebook.com/groups" in url
             
-            # Also search for the name/topic
-            results = self.researcher.search(f"{name} posts populares comentarios", max_results=5)
-            results2 = self.researcher.find_engagement_patterns(name)
+            if is_fb_group:
+                # Use specialized Facebook group research
+                data = self.researcher.research_facebook_group(name, url)
+                results = data.get('related_posts', [])
+                note = data.get('note', '')
+            else:
+                # Generic search
+                results = self.researcher.find_trending_content(name)
+                note = ""
             
-            text = f"🎯 Investigación: {name}\n"
-            text += f"🔗 {url}\n"
-            text += "─" * 50 + "\n\n"
-            text += "📈 POSTS CON MÁS ENGAGEMENT:\n\n"
+            # Build elegant output
+            text = "╔" + "═" * 58 + "╗\n"
+            text += f"║  🎯 {name[:50]:<50}  ║\n"
+            text += "╠" + "═" * 58 + "╣\n"
+            text += f"║  🔗 {url[:50]:<50}  ║\n"
+            text += "╚" + "═" * 58 + "╝\n\n"
             
-            all_results = results + results2.get('high_engagement_content', [])
+            if note:
+                text += f"{note}\n\n"
             
-            for i, r in enumerate(all_results[:8], 1):
-                title = r.get('title', 'Sin título')
-                body = r.get('body', '')[:150]
+            text += "📊 CONTENIDO RELACIONADO ENCONTRADO:\n"
+            text += "─" * 60 + "\n\n"
+            
+            for i, r in enumerate(results[:8], 1):
+                title = r.get('title', 'Sin título')[:60]
+                body = r.get('body', '')[:120]
                 link = r.get('href', '')
-                text += f"{i}. {title}\n"
-                text += f"   {body}...\n"
-                text += f"   🔗 {link}\n\n"
+                
+                text += f"┌─ {i}. {title}\n"
+                text += f"│  {body}...\n"
+                text += f"└─ 🌐 {link}\n\n"
             
-            if not all_results:
-                text += "No se encontraron posts. Intenta con otro link o busca manualmente.\n"
+            if not results:
+                text += "❌ No se encontraron resultados.\n"
+                text += "💡 Intenta buscar manualmente con palabras clave del tema.\n"
             
             self.after(0, lambda: self.results_text.delete("0.0", "end"))
             self.after(0, lambda: self.results_text.insert("0.0", text))

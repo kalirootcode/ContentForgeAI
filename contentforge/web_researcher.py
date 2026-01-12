@@ -4,6 +4,7 @@ Uses DuckDuckGo for web searching and content analysis
 """
 
 import logging
+import re
 from typing import Dict, List, Optional
 from duckduckgo_search import DDGS
 
@@ -17,16 +18,7 @@ class WebResearcher:
         self.ddgs = DDGS()
     
     def search(self, query: str, max_results: int = 10) -> List[Dict]:
-        """
-        Search the web using DuckDuckGo.
-        
-        Args:
-            query: Search query
-            max_results: Maximum number of results
-            
-        Returns:
-            List of search results with title, url, body
-        """
+        """Search the web using DuckDuckGo."""
         try:
             results = list(self.ddgs.text(query, max_results=max_results))
             logger.info(f"Found {len(results)} results for: {query}")
@@ -45,14 +37,7 @@ class WebResearcher:
             return []
     
     def search_social(self, platform: str, query: str, max_results: int = 10) -> List[Dict]:
-        """
-        Search for social media content.
-        
-        Args:
-            platform: 'facebook', 'twitter', 'linkedin', etc.
-            query: Search query
-            max_results: Maximum results
-        """
+        """Search for social media content."""
         platform_queries = {
             "facebook": f"site:facebook.com {query}",
             "twitter": f"site:twitter.com OR site:x.com {query}",
@@ -64,80 +49,81 @@ class WebResearcher:
         search_query = platform_queries.get(platform, f"{platform} {query}")
         return self.search(search_query, max_results)
     
-    def analyze_url_content(self, url: str) -> Optional[Dict]:
+    def research_facebook_group(self, group_name: str, group_url: str) -> Dict:
         """
-        Get information about a specific URL via search.
+        Research content related to a Facebook group topic.
+        
+        NOTE: DuckDuckGo cannot access private Facebook group posts directly.
+        This method searches for PUBLIC content related to the group's topic.
         
         Args:
-            url: URL to analyze
+            group_name: Name/topic of the group
+            group_url: URL of the Facebook group
             
         Returns:
-            Dict with analysis results or None
+            Dict with research results and related posts
         """
-        try:
-            # Search for the specific URL
-            results = list(self.ddgs.text(f"site:{url}", max_results=5))
-            
-            if results:
-                return {
-                    "url": url,
-                    "found_content": results,
-                    "total_results": len(results)
-                }
-            return {"url": url, "found_content": [], "total_results": 0}
-        except Exception as e:
-            logger.error(f"URL analysis error: {e}")
-            return None
-    
-    def get_trending_topics(self, niche: str = "cybersecurity", region: str = "es-mx") -> List[Dict]:
-        """
-        Find trending topics in a specific niche.
+        # Clean up the group name for better search
+        clean_name = re.sub(r'[^\w\s]', '', group_name).strip()
         
-        Args:
-            niche: Topic area (e.g., 'cybersecurity', 'hacking', 'tech')
-            region: Region code
-        """
-        queries = [
-            f"{niche} trending 2024",
-            f"{niche} noticias recientes",
-            f"{niche} viral",
+        # Multiple search strategies for best results
+        search_queries = [
+            # Public Facebook posts on the topic
+            f"site:facebook.com {clean_name} posts",
+            # Related forum discussions
+            f"{clean_name} tutorial mejores posts",
+            # Reddit discussions on same topic
+            f"site:reddit.com {clean_name}",
+            # YouTube content
+            f"site:youtube.com {clean_name} tutorial",
+            # Forums and communities
+            f"{clean_name} comunidad foro discusion",
         ]
         
         all_results = []
-        for query in queries:
+        for query in search_queries[:3]:  # Limit to 3 queries
             results = self.search(query, max_results=5)
             all_results.extend(results)
         
-        return all_results[:10]  # Return top 10
+        # Remove duplicates by URL
+        seen_urls = set()
+        unique_results = []
+        for r in all_results:
+            url = r.get('href', '')
+            if url not in seen_urls:
+                seen_urls.add(url)
+                unique_results.append(r)
+        
+        return {
+            "group_name": group_name,
+            "group_url": group_url,
+            "topic": clean_name,
+            "related_posts": unique_results[:10],
+            "note": "⚠️ Los posts de grupos privados de Facebook no son accesibles públicamente. Estos resultados son contenido público relacionado al tema del grupo."
+        }
     
-    def research_competition(self, topic: str, platforms: List[str] = None) -> Dict:
-        """
-        Research what competitors are posting about a topic.
+    def find_trending_content(self, topic: str, language: str = "es") -> List[Dict]:
+        """Find trending content on a topic in Spanish."""
+        queries = [
+            f"{topic} viral 2025",
+            f"{topic} tendencia",
+            f"{topic} popular post",
+            f"{topic} mejores tips",
+        ]
         
-        Args:
-            topic: Topic to research
-            platforms: List of platforms to search
-        """
-        if platforms is None:
-            platforms = ["facebook", "twitter", "linkedin"]
+        all_results = []
+        for query in queries[:2]:
+            results = self.search(query, max_results=5)
+            all_results.extend(results)
         
-        results = {}
-        for platform in platforms:
-            results[platform] = self.search_social(platform, topic, max_results=5)
-        
-        return results
+        return all_results[:8]
     
     def find_engagement_patterns(self, query: str) -> Dict:
-        """
-        Find posts with high engagement patterns.
-        
-        Args:
-            query: Topic to analyze
-        """
+        """Find posts with high engagement."""
         engagement_keywords = [
-            f"{query} viral post",
+            f"{query} viral post facebook",
             f"{query} trending discussion",
-            f"{query} popular thread",
+            f"{query} comentarios populares",
         ]
         
         results = []
@@ -149,9 +135,23 @@ class WebResearcher:
             "high_engagement_content": results[:10],
             "total_found": len(results)
         }
+    
+    def get_topic_ideas(self, niche: str) -> List[Dict]:
+        """Get content ideas for a niche."""
+        queries = [
+            f"{niche} ideas de contenido",
+            f"{niche} que publicar",
+            f"{niche} posts virales ejemplos",
+        ]
+        
+        results = []
+        for q in queries:
+            results.extend(self.search(q, max_results=3))
+        
+        return results[:8]
 
 
-# Convenience function
 def get_web_researcher() -> WebResearcher:
     """Get a WebResearcher instance."""
     return WebResearcher()
+
