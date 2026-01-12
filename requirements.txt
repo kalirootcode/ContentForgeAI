@@ -6,7 +6,7 @@ Pillow>=10.0.0
 google-genai>=1.0.0
 
 # Web Research
-duckduckgo-search>=6.0.0
+ddgs>=6.0.0
 
 # API Server
 flask>=3.0.0
